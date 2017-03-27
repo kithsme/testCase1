@@ -1,5 +1,6 @@
 import csv
 import numpy as np
+import random
 from PIL import Image
 from datetime import datetime as dt
 
@@ -79,7 +80,7 @@ def makeInputs(matrix):
 
     return rgbDic, coorDic, sep, weak, strong
 
-def separated(matrix, weak, strong, mode):
+def separated(matrix, weak, strong, mode='w'):
 
     sepa = []
     for i in range(len(matrix)-1):
@@ -91,7 +92,7 @@ def separated(matrix, weak, strong, mode):
             bRow = matrix[j]
             if sT < bRow[8] and eT > bRow[10]:
                 cand = list(aId, bRow[1])
-                if mode == 'w' and cand not in weak:
+                if mode == 'w' and cand not in weak and cand not in strong:
                     sepa.append(cand)
                 elif mode == 's' and cand not in strong:
                     sepa.append(cand)
@@ -129,8 +130,32 @@ def map(lon, lat):
         print(lon,lat)
     return a,b
 
+def pair_to_xy(dic, sep, weak, strong, mode='w'):
+
+    ret = []
+    for pair in sep:
+        a, b = pair[0], pair[1]
+        y=[0] # bc it comes from sep, y = 0
+        x = dic[a] + dic[b] + y
+        ret.append(x)
+    
+    for pair in strong:
+        a, b = pair[0], pair[1]
+        y=[1] # bc it comes from strong binned, y = 1
+        x = dic[a] + dic[b] + y
+        ret.append(x)
+
+    if mode=='w':
+        for pair in weak:
+            a, b = pair[0], pair[1]
+            y=[1] # bc it comes from weak binned, y = 1
+            x = dic[a] + dic[b] + y
+            ret.append(x)
+    
+    return random.shuffle(ret)
 
 rgb_dic, coord_dic, sep, weak, strong = makeInputs(orderdata)
+
 
 print(sep)
 print('---------------------------------------')
@@ -139,6 +164,9 @@ print('---------------------------------------')
 print(strong)
 print('---------------------------------------')
 print(len(sep), len(weak), len(strong))
+
+input1 = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
+input2 = pair_to_xy(rgb_dic, sep, weak, strong, mode=SEPATED_MODE)
 
 
 '''
