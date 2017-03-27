@@ -1,10 +1,9 @@
 import csv
 import numpy as np
-import matplotlib.pyplot as plt
 from PIL import Image
 from datetime import datetime as dt
 
-matrix = []
+orderdata = []
 #f = open('C:/Users/kiths/Documents/논문/데이터/ORDER_DATA.csv')
 f = open('C:/Users/kiths/Desktop/ridertest.csv')
 csvReader = csv.reader(f)
@@ -13,9 +12,6 @@ for row in csvReader:
     matrix.append(row)
 
 f.close
-'''
-git test
-'''
 
 MIN_LONG = 127.02
 MAX_LONG = 127.141
@@ -24,6 +20,8 @@ MIN_LAT = 37.485
 MAX_LAT = 37.54
 
 STEP = 32
+
+SEPATED_MODE='w' # 's'
 
 def makeInputs(matrix):
     
@@ -77,8 +75,28 @@ def makeInputs(matrix):
         #im.save("C:/Users/kiths/Documents/visualstudiocode-tensorflow/my_file_{0}.png".format(aRow[0]))
     weak, strong = binned(adjDic)
 
-    return rgbDic, coorDic, weak, strong
+    sep = separated(matrix, weak, strong, mode=SEPATED_MODE)
 
+    return rgbDic, coorDic, sep, weak, strong
+
+def separated(matrix, weak, strong, mode):
+
+    sepa = []
+    for i in range(len(matrix)-1):
+        aRow = matrix[i]
+        aId = aRow[1]
+        sT = aRow[8]
+        eT = aRow[10]
+        for j in range(i+1, len(matrix)):
+            bRow = matrix[j]
+            if sT < bRow[8] and eT > bRow[10]:
+                cand = list(aId, bRow[1])
+                if mode == 'w' and cand not in weak:
+                    sepa.append(cand)
+                elif mode == 's' and cand not in strong:
+                    sepa.append(cand)
+    
+    return sepa
 
 def binned(adjDic):
     """
@@ -100,8 +118,6 @@ def binned(adjDic):
 
     return weak, strong
 
-
-
 def map(lon, lat):
     diff_long = (MAX_LONG-MIN_LONG)/(STEP-1)
     diff_lat = (MAX_LAT-MIN_LAT)/(STEP-1)
@@ -114,15 +130,15 @@ def map(lon, lat):
     return a,b
 
 
-rgb_dic, coord_dic, weak, strong = makeInputs(matrix)
+rgb_dic, coord_dic, sep, weak, strong = makeInputs(orderdata)
 
+print(sep)
+print('---------------------------------------')
 print(weak)
 print('---------------------------------------')
 print(strong)
 print('---------------------------------------')
-print(len(weak), len(strong))
-eee = 3
-
+print(len(sep), len(weak), len(strong))
 
 
 '''
