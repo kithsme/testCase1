@@ -10,7 +10,7 @@ f = open('C:/Users/kiths/Desktop/ridertest.csv')
 csvReader = csv.reader(f)
 
 for row in csvReader:
-    matrix.append(row)
+    orderdata.append(row)
 
 f.close
 
@@ -156,7 +156,8 @@ def pair_to_xy(dic, sep, weak, strong, mode='w'):
             x = dic[a] + dic[b] + y
             ret.append(x)
     
-    return random.shuffle(ret)
+    random.shuffle(ret)
+    return ret
 
 rgb_dic, coord_dic, sep, weak, strong = makeInputs(orderdata)
 
