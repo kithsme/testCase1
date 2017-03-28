@@ -5,26 +5,12 @@ from PIL import Image
 from datetime import datetime as dt
 from datetime import timedelta as td
 
-orderdata = []
-#f = open('C:/Users/kiths/Documents/논문/데이터/ORDER_DATA.csv')
-#f = open('C:/Users/kiths/Desktop/ridertest.csv')
-f = open('/users/tkim/Downloads/order_data.csv')
-csvReader = csv.reader(f)
-
-for row in csvReader:
-    orderdata.append(row)
-
-f.close
-
 MIN_LONG = 127.02
 MAX_LONG = 127.141
-
 MIN_LAT = 37.485
 MAX_LAT = 37.54
-
 STEP = 32
 TIME_WINDOW = 15
-
 SEPATED_MODE='w' # 's'
 
 def makeInputs(matrix):
@@ -184,20 +170,24 @@ def pair_to_xy(dic, sep, weak, strong, mode='w'):
     random.shuffle(ret)
     return ret
 
-coord_dic, sep, weak, strong = makeInputs(orderdata)
+def preproc():
+    orderdata = []
+    #f = open('C:/Users/kiths/Documents/논문/데이터/ORDER_DATA.csv')
+    #f = open('C:/Users/kiths/Desktop/ridertest.csv')
+    f = open('/users/tkim/Downloads/order_data.csv')
+    csvReader = csv.reader(f)
 
-'''
-print(sep)
-print('---------------------------------------')
-print(weak)
-print('---------------------------------------')
-print(strong)
-print('---------------------------------------')
-'''
-print( len(sep), len(weak), len(strong) )
+    for row in csvReader:
+        orderdata.append(row)
+    f.close
 
-coord_xy = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
-rgb_tuples = xy_to_rgbArray(coord_xy)
+    coord_dic, sep, weak, strong = makeInputs(orderdata)
+    # print( len(sep), len(weak), len(strong) )  #check for values
+
+    coord_xy = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
+    rgb_tuples = xy_to_rgbArray(coord_xy)
+
+    return coord_xy, rgb_tuples
 
 '''
 with open('/users/tkim/Downloads/proc_coord_%s_%s.csv'%(SEPATED_MODE, TIME_WINDOW), 'w', newline='') as csv_file:
