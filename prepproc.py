@@ -6,7 +6,8 @@ from datetime import datetime as dt
 
 orderdata = []
 #f = open('C:/Users/kiths/Documents/논문/데이터/ORDER_DATA.csv')
-f = open('C:/Users/kiths/Desktop/ridertest.csv')
+#f = open('C:/Users/kiths/Desktop/ridertest.csv')
+f = open('/users/tkim/Downloads/order_data.csv')
 csvReader = csv.reader(f)
 
 for row in csvReader:
@@ -85,22 +86,25 @@ def parse_date(datetimeStr):
     raise ValueError('No valide date format found for %s'%(datetimeStr))
 
 def separated(matrix, weak, strong, mode='w'):
-
     sepa = []
     for i in range(len(matrix)-1):
         aRow = matrix[i]
         aId = aRow[1]
-        sT = aRow[8]
-        eT = aRow[10]
+        sTa = aRow[8] # catched timestamp of previous order
+        pTa = aRow[9] # picked up timestamp of previous order, 
+        # Considering pickup time as an end of timewindow 
         for j in range(i+1, len(matrix)):
             bRow = matrix[j]
-            if sT < bRow[8] and eT > bRow[10]:
-                cand = list(aId, bRow[1])
+            bId = bRow[1]
+            sTb = bRow[8]
+            if sTa < sTb <pTa :
+                cand = [aId, bId]
                 if mode == 'w' and cand not in weak and cand not in strong:
                     sepa.append(cand)
                 elif mode == 's' and cand not in strong:
                     sepa.append(cand)
-    
+            elif sTb >= pTa:
+                break
     return sepa
 
 def binned(adjDic):
