@@ -63,15 +63,11 @@ def makeInputs(matrix):
         format_creationdatetime = '%Y-%m-%d %H:%M'
         format_timestamp = '%H:%M:%S'
         if not aRow[7] in adjDic:
-            adjDic[aRow[7]] = [(aRow[1], dt.strptime(aRow[0], format_creationdatetime), 
-            dt.strptime(aRow[8], format_timestamp), 
-            dt.strptime(aRow[9], format_timestamp), 
-            dt.strptime(aRow[10], format_timestamp))]
+            adjDic[aRow[7]] = [(aRow[1], parse_date(aRow[0]), 
+            parse_date(aRow[8]), parse_date(aRow[9]), parse_date(aRow[10]))]
         else:
-            adjDic[aRow[7]].append((aRow[1], dt.strptime(aRow[0], format_creationdatetime), 
-            dt.strptime(aRow[8], format_timestamp), 
-            dt.strptime(aRow[9], format_timestamp), 
-            dt.strptime(aRow[10], format_timestamp)))
+            adjDic[aRow[7]].append((aRow[1], parse_date(aRow[0]), 
+            parse_date(aRow[8]), parse_date(aRow[9]), parse_date(aRow[10])))
         #im = Image.fromarray(rgbArray)
         #im.save("C:/Users/kiths/Documents/visualstudiocode-tensorflow/my_file_{0}.png".format(aRow[0]))
     weak, strong = binned(adjDic)
@@ -79,6 +75,14 @@ def makeInputs(matrix):
     sep = separated(matrix, weak, strong, mode=SEPATED_MODE)
 
     return rgbDic, coorDic, sep, weak, strong
+
+def parse_date(datetimeStr):
+    for fmt in ('%Y-%m-%d %H:%M', '%Y.%m.%d %H:%M' ,'%H:%M:%S'):
+        try:
+            return dt.strptime(datetimeStr, fmt)
+        except ValueError:
+            pass
+    raise ValueError('No valide date format found for %s'%(datetimeStr))
 
 def separated(matrix, weak, strong, mode='w'):
 
@@ -156,14 +160,15 @@ def pair_to_xy(dic, sep, weak, strong, mode='w'):
 
 rgb_dic, coord_dic, sep, weak, strong = makeInputs(orderdata)
 
-
+'''
 print(sep)
 print('---------------------------------------')
 print(weak)
 print('---------------------------------------')
 print(strong)
 print('---------------------------------------')
-print(len(sep), len(weak), len(strong))
+'''
+print( len(sep), len(weak), len(strong) )
 
 input1 = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
 input2 = pair_to_xy(rgb_dic, sep, weak, strong, mode=SEPATED_MODE)
