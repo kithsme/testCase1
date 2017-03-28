@@ -61,8 +61,6 @@ def makeInputs(matrix):
 
         rgbDic[aRow[1]] = sum(sum(rgbArray.tolist(),[]),[])
         coorDic[aRow[1]] = [from_long, from_lat, to_long, to_lat]
-        format_creationdatetime = '%Y-%m-%d %H:%M'
-        format_timestamp = '%H:%M:%S'
         if not aRow[7] in adjDic:
             adjDic[aRow[7]] = [(aRow[1], parse_date(aRow[0]), 
             parse_date(aRow[8]), parse_date(aRow[9]), parse_date(aRow[10]))]
@@ -78,6 +76,8 @@ def makeInputs(matrix):
     return rgbDic, coorDic, sep, weak, strong
 
 def parse_date(datetimeStr):
+    if type(datetimeStr) is type(dt):
+        return datetimeStr
     for fmt in ('%Y-%m-%d %H:%M', '%Y.%m.%d %H:%M' ,'%H:%M:%S'):
         try:
             return dt.strptime(datetimeStr, fmt)
