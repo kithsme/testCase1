@@ -3,6 +3,7 @@ import numpy as np
 import random
 from PIL import Image
 from datetime import datetime as dt
+from datetime import timedelta as td
 
 orderdata = []
 #f = open('C:/Users/kiths/Documents/논문/데이터/ORDER_DATA.csv')
@@ -22,6 +23,7 @@ MIN_LAT = 37.485
 MAX_LAT = 37.54
 
 STEP = 32
+TIME_WINDOW = 15
 
 SEPATED_MODE='w' # 's'
 
@@ -71,7 +73,7 @@ def makeInputs(matrix):
         #im.save("C:/Users/kiths/Documents/visualstudiocode-tensorflow/my_file_{0}.png".format(aRow[0]))
     weak, strong = binned(adjDic)
 
-    sep = separated(matrix, weak, strong, mode=SEPATED_MODE)
+    sep = separated(matrix, weak, strong, mode=SEPATED_MODE, tw=TIME_WINDOW)
 
     return rgbDic, coorDic, sep, weak, strong
 
@@ -85,25 +87,24 @@ def parse_date(datetimeStr):
             pass
     raise ValueError('No valide date format found for %s'%(datetimeStr))
 
-def separated(matrix, weak, strong, mode='w'):
+def separated(matrix, weak, strong, mode='w', tw=15):
     sepa = []
+    twindow = td(seconds=tw*60)
     for i in range(len(matrix)-1):
         aRow = matrix[i]
         aId = aRow[1]
-        sTa = aRow[8] # catched timestamp of previous order
-        pTa = aRow[9] # picked up timestamp of previous order, 
-        # Considering pickup time as an end of timewindow 
+        sTa = parse_date(aRow[8]) # catched timestamp of previous order
         for j in range(i+1, len(matrix)):
             bRow = matrix[j]
             bId = bRow[1]
-            sTb = bRow[8]
-            if sTa < sTb <pTa :
+            sTb = parse_date(bRow[8])
+            if sTa < sTb < sTa+twindow :
                 cand = [aId, bId]
                 if mode == 'w' and cand not in weak and cand not in strong:
                     sepa.append(cand)
                 elif mode == 's' and cand not in strong:
                     sepa.append(cand)
-            elif sTb >= pTa:
+            else:
                 break
     return sepa
 
