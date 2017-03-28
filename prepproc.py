@@ -43,25 +43,11 @@ def makeInputs(matrix):
         aRow[7]: deliverer id 
         aRow[8,9,10]: catched timestamp, pickedup timestamp, delivered timestamp
         """
-        rgbArray = np.zeros((STEP, STEP, 3),'uint8')
         from_long = float(aRow[2])
         from_lat = float(aRow[3])
-        from_i, from_j = map(from_long, from_lat)
         to_long = float(aRow[5])
         to_lat = float(aRow[6])
-        to_i, to_j = map(to_long, to_lat)
-        if from_i==to_i and from_j==to_j:
-            rgbArray[from_i][from_j][0] = 255
-            rgbArray[to_i][to_j][2] = 255
-        else:
-            rgbArray[from_i][from_j][0] = 255
-            #rgbArray[from_i][from_j][1] = 0
-            #rgbArray[from_i][from_j][2] = 0
-            #rgbArray[to_i][to_j][0] = 0
-            #rgbArray[to_i][to_j][1] = 0
-            rgbArray[to_i][to_j][2] = 255
 
-        rgbDic[aRow[1]] = sum(sum(rgbArray.tolist(),[]),[])
         coorDic[aRow[1]] = [from_long, from_lat, to_long, to_lat]
         if not aRow[7] in adjDic:
             adjDic[aRow[7]] = [(aRow[1], parse_date(aRow[0]), 
@@ -69,13 +55,12 @@ def makeInputs(matrix):
         else:
             adjDic[aRow[7]].append((aRow[1], parse_date(aRow[0]), 
             parse_date(aRow[8]), parse_date(aRow[9]), parse_date(aRow[10])))
-        #im = Image.fromarray(rgbArray)
-        #im.save("C:/Users/kiths/Documents/visualstudiocode-tensorflow/my_file_{0}.png".format(aRow[0]))
+        
     weak, strong = binned(adjDic)
 
     sep = separated(matrix, weak, strong, mode=SEPATED_MODE, tw=TIME_WINDOW)
 
-    return rgbDic, coorDic, sep, weak, strong
+    return coorDic, sep, weak, strong
 
 def parse_date(datetimeStr):
     if type(datetimeStr) is type(dt):
@@ -139,6 +124,41 @@ def map(lon, lat):
         print(lon,lat)
     return a,b
 
+def xy_to_rgbArray(xy):
+    """
+    return tuples!!!
+    """
+    ret=[]
+    count = 1
+    for a in xy:
+        """
+        a[0,1]: previous from long,lat
+        a[2,3]: previous to long,lat
+        a[4,5]: following from long,lat
+        a[6,7]: following to long,lat
+        a[8]: y (1 if binned 0 else separated)  
+        """
+        rgb_array = np.zeros((STEP,STEP,3), 'uint8')
+        p_from_i, p_from_j = map(a[0], a[1])
+        p_to_i, p_to_j = map(a[2], a[3])
+        q_from_i, q_from_j = map(a[4], a[5])
+        q_to_i, q_to_j = map(a[6], a[7])
+
+        # if two orders share a point, previous one always overwrite it
+        rgb_array[q_from_i][q_from_j][0] = 130
+        rgb_array[q_to_i][q_to_j][2] = 130
+        rgb_array[p_from_i][p_from_j][0] = 255
+        rgb_array[p_to_i][p_to_j][2] = 255
+        ret.append( (rgb_array, a[8]) )
+        count +=1
+
+        # print for debugging and illustrative examples
+        if count % 2500 == 0:
+            im = Image.fromarray(rgb_array)
+            im.save("/users/tkim/Downloads/fig_{0}_{1}.png".format(count, a[8]))
+
+    return ret
+
 def pair_to_xy(dic, sep, weak, strong, mode='w'):
 
     ret = []
@@ -164,7 +184,7 @@ def pair_to_xy(dic, sep, weak, strong, mode='w'):
     random.shuffle(ret)
     return ret
 
-rgb_dic, coord_dic, sep, weak, strong = makeInputs(orderdata)
+coord_dic, sep, weak, strong = makeInputs(orderdata)
 
 '''
 print(sep)
@@ -176,18 +196,12 @@ print('---------------------------------------')
 '''
 print( len(sep), len(weak), len(strong) )
 
-input1 = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
-input2 = pair_to_xy(rgb_dic, sep, weak, strong, mode=SEPATED_MODE)
-
+coord_xy = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
+rgb_tuples = xy_to_rgbArray(coord_xy)
 
 '''
-with open('C:/Users/kiths/Desktop/book2_proc_rgb.csv', 'w', newline='') as csv_file:
+with open('/users/tkim/Downloads/proc_coord_%s_%s.csv'%(SEPATED_MODE, TIME_WINDOW), 'w', newline='') as csv_file:
     writer = csv.writer(csv_file, delimiter=',')
-    for a in rgb_dic.items():
-        writer.writerow([a[0]]+a[1])
-
-with open('C:/Users/kiths/Desktop/book2_proc_coord.csv', 'w', newline='') as csv_file:
-    writer = csv.writer(csv_file, delimiter=',')
-    for a in coord_dic.items():
-        writer.writerow([a[0]]+a[1])
+    for a in coord_xy:
+        writer.writerow(a)
 '''
