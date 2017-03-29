@@ -1,4 +1,5 @@
 import csv
+import os
 import numpy as np
 import random
 from PIL import Image
@@ -11,7 +12,7 @@ MIN_LAT = 37.485
 MAX_LAT = 37.54
 STEP = 32
 TIME_WINDOW = 15
-SEPATED_MODE='w' # 's'
+SEPATED_MODE='s' # 'w'
 
 def makeInputs(matrix):
     
@@ -122,7 +123,7 @@ def xy_to_rgbArray(xy):
         a[2,3]: previous to long,lat
         a[4,5]: following from long,lat
         a[6,7]: following to long,lat
-        a[8]: y (1 if binned 0 else separated)  
+        a[8]: y (1 or 0)  
         """
         rgb_array = np.zeros((STEP,STEP,3), 'uint8')
         p_from_i, p_from_j = map(a[0], a[1])
@@ -131,17 +132,20 @@ def xy_to_rgbArray(xy):
         q_to_i, q_to_j = map(a[6], a[7])
 
         # if two orders share a point, previous one always overwrite it
-        rgb_array[q_from_i][q_from_j][0] = 130
-        rgb_array[q_to_i][q_to_j][2] = 130
+        rgb_array[q_from_i][q_from_j][0] = 255
+        rgb_array[q_to_i][q_to_j][2] = 255
+
         rgb_array[p_from_i][p_from_j][0] = 255
+        rgb_array[p_from_i][p_from_j][1] = 255
+        rgb_array[p_to_i][p_to_j][1] = 255
         rgb_array[p_to_i][p_to_j][2] = 255
         ret.append( (rgb_array, a[8]) )
         count +=1
 
         # print for debugging and illustrative examples
-        if count % 2500 == 0:
+        if count % 739 == 0:
             im = Image.fromarray(rgb_array)
-            im.save("/users/tkim/Downloads/fig_{0}_{1}.png".format(count, a[8]))
+            im.save("/result/fig/test1_fig/{0}_fig_{1}.png".format(a[8], count))
 
     return ret
 
@@ -166,15 +170,35 @@ def pair_to_xy(dic, sep, weak, strong, mode='w'):
             y=[1] # bc it comes from weak binned, y = 1
             x = dic[a] + dic[b] + y
             ret.append(x)
+    else:
+        for pair in weak:
+            a, b = pair[0], pair[1]
+            y=[0] # bc it comes from weak binned, but policy is strong so y = 0
+            x = dic[a] + dic[b] + y
+            ret.append(x)
     
     random.shuffle(ret)
     return ret
 
-def preproc():
+def write_csv(lst, rgb=0):
+    random.shuffle(lst)
+    slicingInd = int(len(lst) * 0.75)
+    ltype = 'coords' if rgb==0 else 'rgb'
+    filename = './result/{0}_training_data.csv'.format(ltype)
+    with open(filename, 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        for a in lst[:slicingInd]:
+            writer.writerow(a)
+
+    filename = './result/{0}_test_data.csv'.format(ltype)
+    with open(filename, 'w', newline='') as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        for a in lst[slicingInd:]:
+            writer.writerow(a)
+
+def preproc(rgb=0):
     orderdata = []
-    #f = open('C:/Users/kiths/Documents/논문/데이터/ORDER_DATA.csv')
-    #f = open('C:/Users/kiths/Desktop/ridertest.csv')
-    f = open('/users/tkim/Downloads/order_data.csv')
+    f = open('./data/order_data.csv')
     csvReader = csv.reader(f)
 
     for row in csvReader:
@@ -185,13 +209,10 @@ def preproc():
     # print( len(sep), len(weak), len(strong) )  #check for values
 
     coord_xy = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
-    rgb_tuples = xy_to_rgbArray(coord_xy)
-
-    return coord_xy, rgb_tuples
-
-'''
-with open('/users/tkim/Downloads/proc_coord_%s_%s.csv'%(SEPATED_MODE, TIME_WINDOW), 'w', newline='') as csv_file:
-    writer = csv.writer(csv_file, delimiter=',')
-    for a in coord_xy:
-        writer.writerow(a)
-'''
+    if rgb==1:
+        rgb_tuples = xy_to_rgbArray(coord_xy)
+        print('preprocessing complete w/ coordinates & rgb inputs')
+        #return coord_xy, rgb_tuples
+    else:
+        print('preprocessing complete w/ coordinates inputs')
+        write_csv(coord_xy, rgb)
