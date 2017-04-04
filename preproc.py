@@ -312,7 +312,9 @@ def draw_map(xy):
     for a in xy:
         q_to_i, q_to_j = map(a[6], a[7])
         fill_point(rgb_array_map, q_to_i, q_to_j, GRAY_SCALE, GRAY_SCALE, GRAY_SCALE)
-        
+    
+    if not os.path.exists("./result/fig"):
+        os.makedirs("./result/fig")
     im = Image.fromarray(rgb_array_map)
     im.save("./result/fig/whole_fig.png")
 
