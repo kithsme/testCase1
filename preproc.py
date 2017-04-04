@@ -6,12 +6,13 @@ from PIL import Image
 from datetime import datetime as dt
 from datetime import timedelta as td
 
-MIN_LONG = 127.02
-MAX_LONG = 127.141
-MIN_LAT = 37.485
-MAX_LAT = 37.54
-STEP = 32
-TIME_WINDOW = 15
+MIN_LONG = 127.07
+MAX_LONG = 127.14
+MIN_LAT = 37.48
+MAX_LAT = 37.53
+GRAY_SCALE = 15
+STEP = 64
+TIME_WINDOW = 1.5
 SEPATED_MODE='s' # 'w'
 
 def makeInputs(matrix):
@@ -92,7 +93,7 @@ def binned(adjDic):
     for key in adjDic:
         prev = adjDic[key][0]
         for a in adjDic[key]:
-            if prev[2]<a[2] and a[2] < prev[3]:
+            if prev[2]<a[2]<prev[3] and (a[3] < prev[4] or a[3] < prev[3]):
                 strong.append( [prev[0], a[0]] )
             elif prev[2]<a[2] and a[2] < prev[4]:
                 weak.append( [prev[0], a[0]] )
@@ -101,6 +102,11 @@ def binned(adjDic):
     return weak, strong
 
 def map(lon, lat):
+    """
+    get longitude and latitude, 
+    return STEP-processed(lat), processed(lon) 
+    for i, j in figure
+    """
     diff_long = (MAX_LONG-MIN_LONG)/(STEP-1)
     diff_lat = (MAX_LAT-MIN_LAT)/(STEP-1)
 
@@ -111,41 +117,161 @@ def map(lon, lat):
         print(lon,lat)
     return a,b
 
-def xy_to_rgbArray(xy):
-    """
-    return tuples!!!
-    """
-    ret=[]
-    count = 1
+def xy_to_rgbArray(xy, gray_map):
+    x,y,x_t,x_f=[],[],[],[]
+    count = 0
     for a in xy:
         """
         a[0,1]: previous from long,lat
         a[2,3]: previous to long,lat
         a[4,5]: following from long,lat
         a[6,7]: following to long,lat
-        a[8]: y (1 or 0)  
+        a[8,9]: y (1 or 0)
+        a[10,11]: prev order id , following order id 
         """
-        rgb_array = np.zeros((STEP,STEP,3), 'uint8')
+        # i, j index is reverted b/c it is stored to array
+        rgb_array = np.empty_like(gray_map)
+        rgb_array[:] = gray_map
+        #fig_test(rgb_array)
         p_from_i, p_from_j = map(a[0], a[1])
         p_to_i, p_to_j = map(a[2], a[3])
+        #p_line = line(p_from_i, p_from_j, p_to_i, p_to_j)
+
         q_from_i, q_from_j = map(a[4], a[5])
         q_to_i, q_to_j = map(a[6], a[7])
+        #q_line = line(q_from_i, q_from_j, q_to_i, q_to_j)
+        
+        except_point = [(p_from_i, p_from_j), (p_to_i, p_to_j), (q_from_i, q_from_j), (q_to_i, q_to_j)]
+
+        p_line = line(p_from_i, p_from_j, q_from_i, q_from_j)
+        p_half = len(p_line)//2+1
+        q_line = line(p_to_i, p_to_j, q_to_i, q_to_j)
+        q_half = len(q_line)//2+1
+        r_line = line(q_from_i, q_from_j, p_to_i, p_to_j)
+        r_half = len(r_line)//2+1
 
         # if two orders share a point, previous one always overwrite it
-        rgb_array[q_from_i][q_from_j][0] = 255
-        rgb_array[q_to_i][q_to_j][2] = 255
+        fill_point(rgb_array, q_from_i, q_from_j, 255,0,0)
+        fill_point(rgb_array, q_to_i, q_to_j, 0, 0, 255)
+        fill_point(rgb_array, p_from_i, p_from_j, 255, 255, 0)
+        fill_point(rgb_array, p_to_i, p_to_j, 0, 255, 255)
 
-        rgb_array[p_from_i][p_from_j][0] = 255
-        rgb_array[p_from_i][p_from_j][1] = 255
-        rgb_array[p_to_i][p_to_j][1] = 255
-        rgb_array[p_to_i][p_to_j][2] = 255
-        ret.append( (rgb_array, a[8]) )
+        for l in q_line[:q_half]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 0,150,150)
+        for l in q_line[q_half:]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 0,0,150)
+
+        for l in r_line[:r_half]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 150,0,0)
+        for l in r_line[r_half:]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 0,150,150)
+
+        for l in p_line[:p_half]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 150,150,0)
+        for l in p_line[p_half:]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 150,0,0)
+        '''
+        for l in q_line[:q_half]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 150,0,0)
+        
+        for l in q_line[q_half:]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 0,0,150)
+
+        for l in p_line[:p_half]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 150,150,0)
+        
+        for l in p_line[p_half:]:
+            if not l in except_point:
+                fill_point(rgb_array, l[0], l[1], 0,150,150)
+        '''
+
+        x.append(rgb_array.reshape(STEP*STEP*3).tolist())
+        y.append(a[8:10])
+
+        if a[8]==1:
+            x_t.append(rgb_array.reshape(STEP*STEP*3).tolist())
+        else:
+            x_f.append(rgb_array.reshape(STEP*STEP*3).tolist())
+        
         count +=1
 
-        # print for debugging and illustrative examples
-        if count % 739 == 0:
+        ## print for debugging and illustrative examples
+        if count % 100 == 0:
             im = Image.fromarray(rgb_array)
-            im.save("/result/fig/test1_fig/{0}_fig_{1}.png".format(a[8], count))
+            im.save("./result/fig/{0}_fig_{1}_{2}.png".format(a[8], a[10], a[11]))
+        
+    return x,y, x_t, x_f
+
+def fig_test(rgb_array):
+    pi, pj = 1, 1
+    qi, qj = 10, 30
+    except_point = [(pi,pj),(qi,qj)]
+    pqline = line(pi,pj,qi,qj)
+    for l in pqline:
+        if not l in except_point:
+            fill_point(rgb_array, l[0], l[1], 255,255,255)
+    fill_point(rgb_array, pi, pj, 255,0,0)
+    fill_point(rgb_array, qi,qj,0,0,255)
+
+    im = Image.fromarray(rgb_array)
+    im.save("./result/fig/test_fig.png")
+
+def fill_point(nda, i,j,r,g,b):
+    nda[STEP-j][i][0] = r
+    nda[STEP-j][i][1] = g
+    nda[STEP-j][i][2] = b
+
+def line(i1,j1,i2, j2):
+    x_axis_len = abs(i1-i2)
+    y_axis_len = abs(j1-j2)
+    x_diff = i1-i2
+    y_diff = j1-j2
+
+    #print(i1, j1, i2, j2)
+    min_axis_len = min(x_axis_len, y_axis_len)
+    max_axis_len = max(x_axis_len, y_axis_len)
+    min_axis = 'y' if min_axis_len==y_axis_len else 'x'
+
+    ret = []
+    x_dir = 1
+    y_dir = 1
+    if x_diff == 0:
+        x_dir = 0
+    elif x_diff > 0:
+        x_dir = -1
+    
+    if y_diff == 0:
+        y_dir = 0
+    elif y_diff > 0:
+        y_dir = -1
+
+    xs = []
+    ys = []
+
+    for i in range(max_axis_len):
+        level = int(i//((max_axis_len+1)/(min_axis_len+1)))
+        if x_axis_len == y_axis_len:
+            xs.append(i1 + i * x_dir)
+            ys.append(j1 + i * y_dir)
+        elif min_axis == 'y':
+            xs.append(i1 + i * x_dir)
+            ys.append(j1 + level * y_dir)
+        elif min_axis =='x':
+            ys.append(j1 + i*y_dir)
+            xs.append(i1 + level * x_dir)            
+    
+    for i in range(max_axis_len):
+        a,b = xs[i],ys[i]
+        ret.append((a,b))
 
     return ret
 
@@ -154,31 +280,43 @@ def pair_to_xy(dic, sep, weak, strong, mode='w'):
     ret = []
     for pair in sep:
         a, b = pair[0], pair[1]
-        y=[0] # bc it comes from sep, y = 0
-        x = dic[a] + dic[b] + y
+        y=[0,1] # bc it comes from sep, y = 0
+        x = dic[a] + dic[b] + y + [a,b]
         ret.append(x)
     
     for pair in strong:
         a, b = pair[0], pair[1]
-        y=[1] # bc it comes from strong binned, y = 1
-        x = dic[a] + dic[b] + y
+        y=[1,0] # bc it comes from strong binned, y = 1
+        x = dic[a] + dic[b] + y + [a,b]
         ret.append(x)
 
     if mode=='w':
         for pair in weak:
             a, b = pair[0], pair[1]
-            y=[1] # bc it comes from weak binned, y = 1
-            x = dic[a] + dic[b] + y
+            y=[1,0] # bc it comes from weak binned, y = 1
+            x = dic[a] + dic[b] + y + [a,b]
             ret.append(x)
     else:
-        for pair in weak:
-            a, b = pair[0], pair[1]
-            y=[0] # bc it comes from weak binned, but policy is strong so y = 0
-            x = dic[a] + dic[b] + y
-            ret.append(x)
+        pass
+        #for pair in weak:
+        #    a, b = pair[0], pair[1]
+        #    y=[0,1] # bc it comes from weak binned, but policy is strong so y = 0
+        #    x = dic[a] + dic[b] + y
+        #    ret.append(x)
     
     random.shuffle(ret)
     return ret
+
+def draw_map(xy):
+    rgb_array_map = np.zeros((STEP,STEP,3), 'uint8')
+    for a in xy:
+        q_to_i, q_to_j = map(a[6], a[7])
+        fill_point(rgb_array_map, q_to_i, q_to_j, GRAY_SCALE, GRAY_SCALE, GRAY_SCALE)
+        
+    im = Image.fromarray(rgb_array_map)
+    im.save("./result/fig/whole_fig.png")
+
+    return rgb_array_map
 
 def write_csv(lst, rgb=0):
     random.shuffle(lst)
@@ -198,7 +336,7 @@ def write_csv(lst, rgb=0):
 
 def preproc(rgb=0):
     orderdata = []
-    f = open('./data/order_data.csv')
+    f = open('./data/order_data_2.csv')
     csvReader = csv.reader(f)
 
     for row in csvReader:
@@ -210,9 +348,10 @@ def preproc(rgb=0):
 
     coord_xy = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
     if rgb==1:
-        rgb_tuples = xy_to_rgbArray(coord_xy)
-        print('preprocessing complete w/ coordinates & rgb inputs')
-        #return coord_xy, rgb_tuples
+        gray_map = draw_map(coord_xy)
+        rgb_x,rgb_y, x_t, x_f = xy_to_rgbArray(coord_xy, gray_map)
+        print('preprocessing complete w/ rgb inputs: interest/total {0}/{1}'.format(len(x_t), len(rgb_x)))
+        return rgb_x, rgb_y, x_t, x_f
     else:
         print('preprocessing complete w/ coordinates inputs')
         write_csv(coord_xy, rgb)
