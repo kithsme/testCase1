@@ -1,11 +1,14 @@
 import tensorflow as tf
 import numpy as np
 import preproc
+import time
+import random
 
 BATCH_SIZE = 100
-CONV_OUT_CH_NUM = 32
+CONV_OUT_CH_NUM = 64
 FULLY_CONNECTED_NUM = 1024
-DROP_OUT_PROB = 0.7
+DROP_OUT_PROB = 0.5
+ITERATION = 100
 
 rgb_x, rgb_y, x_t, x_f = preproc.preproc(rgb=1)
 rgb_x_train = rgb_x[:int(len(rgb_y)*0.75)]
@@ -26,32 +29,18 @@ sess = tf.InteractiveSession()
 
 x = tf.placeholder(tf.float32, shape=[None, preproc.STEP*preproc.STEP*3])
 y_ = tf.placeholder(tf.float32, shape=[None, 2])
-'''
-W = tf.Variable(tf.zeros([32*32*3,2]))
-b = tf.Variable(tf.zeros([2]))
 
-sess.run(tf.global_variables_initializer())
+def shuffle(rgb_x, rgb_y):
+    shuffleIndLst = []
+    for i, a in enumerate(rgb_x):
+        shuffleIndLst.append(i)
+    random.shuffle(shuffleIndLst)
+    shuffled_x, shuffled_y = [], []
+    for i in shuffleIndLst:
+        shuffled_x.append(rgb_x[i])
+        shuffled_y.append(rgb_y[i])
+    return shuffled_x, shuffled_y
 
-y = tf.matmul(x,W)+b
-
-cross_entropy = tf.reduce_mean(
-    tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y)
-)
-
-train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
-
-for i in range(1000):
-    xx = rgb_x_train[50*i:50*i+50]
-    yy = rgb_y_train[50*i:50*i+50]
-    train_step.run(feed_dict={x: xx, y_: yy})
-
-correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
-
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-print('one layer test accuracy: %g'%accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test}))
-print('one layer: true set accuracy: %g'%accuracy.eval(feed_dict={x:x_t, y_:y_t}))
-
-'''
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1) # small noise for symmetry breaking
     return tf.Variable(initial)
@@ -126,16 +115,22 @@ sess.run(tf.global_variables_initializer())
 correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-for j in range(10):
+print('\n-------------------------------------------------')
+start_time = time.time()
+for j in range(ITERATION):
+    rgb_x_train, rgb_y_train = shuffle(rgb_x_train, rgb_y_train)
     for i in range(it):
-        if i%100==0: 
-            print('Batch ({0}/{1}) starts training...'.format((it*j+i+1), it*10))
         xx = rgb_x_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
         yy = rgb_y_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
         train_step.run(feed_dict={x: xx, y_: yy, keep_prob:DROP_OUT_PROB})
+        if (it*j+i)%100==0: 
+            print('Batch ({0}/{1}) starts training...'.format((it*j+i+1), it*ITERATION))
+            print('\tconv: training accuracy: %g'%accuracy.eval(feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0}))
+            print('\tconv: test accuracy: %g'%accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0}))
+            print('\tconv: true only set accuracy: %g'%accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0}))
 
 print('\n-------------------------------------------------')
-print('conv: test accuracy: %g'%accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0}))
-print('conv: true only set accuracy: %g'%accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0}))
-#print('conv: false only set accuracy: %g'%accuracy.eval(feed_dict={x:x_f, y_:y_f, keep_prob:1.0}))
-
+print('Final conv: test accuracy: %g'%accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0}))
+print('Final conv: true only set accuracy: %g'%accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0}))
+print('Final conv: false only set accuracy: %g'%accuracy.eval(feed_dict={x:x_f, y_:y_f, keep_prob:1.0}))
+print('Total spent time: {0}'.format(time.time()-start_time))
