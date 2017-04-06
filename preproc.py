@@ -11,13 +11,12 @@ MAX_LONG = 127.14
 MIN_LAT = 37.48
 MAX_LAT = 37.53
 GRAY_SCALE = 15
-STEP = 64
-TIME_WINDOW = 1.5
-SEPATED_MODE='s' # 'w'
+STEP = 32
+TIME_WINDOW = 6
+DRAW_FIGURE = True
 
 def makeInputs(matrix):
     
-    rgbDic={}
     coorDic={}
     adjDic = {}
 
@@ -44,11 +43,11 @@ def makeInputs(matrix):
             adjDic[aRow[7]].append((aRow[1], parse_date(aRow[0]), 
             parse_date(aRow[8]), parse_date(aRow[9]), parse_date(aRow[10])))
         
-    weak, strong = binned(adjDic)
+    dual_picked = get_dual_picked(adjDic, TIME_WINDOW)
 
-    sep = separated(matrix, weak, strong, mode=SEPATED_MODE, tw=TIME_WINDOW)
+    sep = separated(matrix, dual_picked, tw=TIME_WINDOW)
 
-    return coorDic, sep, weak, strong
+    return coorDic, sep, dual_picked
 
 def parse_date(datetimeStr):
     if type(datetimeStr) is type(dt):
@@ -60,7 +59,7 @@ def parse_date(datetimeStr):
             pass
     raise ValueError('No valide date format found for %s'%(datetimeStr))
 
-def separated(matrix, weak, strong, mode='w', tw=15):
+def separated(matrix, dual_picked, tw=15):
     sepa = []
     twindow = td(seconds=tw*60)
     for i in range(len(matrix)-1):
@@ -72,34 +71,53 @@ def separated(matrix, weak, strong, mode='w', tw=15):
             bId = bRow[1]
             sTb = parse_date(bRow[8])
             if sTa < sTb < sTa+twindow :
-                cand = [aId, bId]
-                if mode == 'w' and cand not in weak and cand not in strong:
-                    sepa.append(cand)
-                elif mode == 's' and cand not in strong:
-                    sepa.append(cand)
+                exist = sum(1 for x in dual_picked if x[0]==aId and x[1]==bId)
+                if exist == 0:
+                    sepa.append( (aId,bId) )
             else:
                 break
     return sepa
 
-def binned(adjDic):
+def get_dual_picked(adjDic, tw=15):
     """
+    return tuples (order1_id, order2_id, dual_picked_type) 
+        # type 1 : pick1 pick2 del1 del2
+        # type 2 : pick2 pick1 del1 del2
+        # type 3 : pick1 pick2 del2 del1
+        # type 4 : pick2 pick1 del2 del1
     a[0]: order id
     a[1]: creation timestamp
     a[2,3,4]: catched timestamp, pickedup timestamp, delivered timestamp
     """
-    weak=[]
-    strong=[]
+    type1_cnt = 0
+    type2_cnt = 0
+    type3_cnt = 0
+    type4_cnt = 0
+    dual_picked=[]
+    twindow = td(seconds=tw*60)
     prev=None
-    for key in adjDic:
-        prev = adjDic[key][0]
+    for key in adjDic:  # for every rider
+        prev = adjDic[key][0] 
         for a in adjDic[key]:
-            if prev[2]<a[2]<prev[3] and (a[3] < prev[4] or a[3] < prev[3]):
-                strong.append( [prev[0], a[0]] )
-            elif prev[2]<a[2] and a[2] < prev[4]:
-                weak.append( [prev[0], a[0]] )
-            prev = a
+            if a[2] > prev[2] + twindow:
+                pass
+            elif prev[3] < a[3] < prev[4] < a[4]: # type 1
+                dual_picked.append((prev[0], a[0], 1))
+                type1_cnt +=1
+            elif a[3] < prev[3] < prev[4] < a[4]: # type 2
+                dual_picked.append((prev[0], a[0], 2))
+                type2_cnt +=1
+            elif prev[3] < a[3] < a[4] < prev[4]: # type 3
+                dual_picked.append((prev[0], a[0], 3))
+                type3_cnt +=1
+            elif a[3] < prev[3] < a[4] < prev[4]: # type 4
+                dual_picked.append((prev[0], a[0], 4))
+                type4_cnt +=1
 
-    return weak, strong
+            prev = a # order update and next
+    
+    print('Total {0} duals, 1: {1}, 2: {2}, 3: {3}, 4: {4}'.format(type1_cnt+type2_cnt+type3_cnt+type4_cnt, type1_cnt, type2_cnt, type3_cnt, type4_cnt))
+    return dual_picked
 
 def map(lon, lat):
     """
@@ -118,7 +136,7 @@ def map(lon, lat):
     return a,b
 
 def xy_to_rgbArray(xy, gray_map):
-    x,y,x_t,x_f=[],[],[],[]
+    x,y=[],[]
     count = 0
     for a in xy:
         """
@@ -126,8 +144,8 @@ def xy_to_rgbArray(xy, gray_map):
         a[2,3]: previous to long,lat
         a[4,5]: following from long,lat
         a[6,7]: following to long,lat
-        a[8,9]: y (1 or 0)
-        a[10,11]: prev order id , following order id 
+        a[8]: type (0~4)
+        a[9,10]: prev order id , following order id 
         """
         # i, j index is reverted b/c it is stored to array
         rgb_array = np.empty_like(gray_map)
@@ -141,75 +159,158 @@ def xy_to_rgbArray(xy, gray_map):
         q_to_i, q_to_j = map(a[6], a[7])
         #q_line = line(q_from_i, q_from_j, q_to_i, q_to_j)
         
-        except_point = [(p_from_i, p_from_j), (p_to_i, p_to_j), (q_from_i, q_from_j), (q_to_i, q_to_j)]
-
-        p_line = line(p_from_i, p_from_j, q_from_i, q_from_j)
-        p_half = len(p_line)//2+1
-        q_line = line(p_to_i, p_to_j, q_to_i, q_to_j)
-        q_half = len(q_line)//2+1
-        r_line = line(q_from_i, q_from_j, p_to_i, p_to_j)
-        r_half = len(r_line)//2+1
-
+        points = [(p_from_i, p_from_j), (p_to_i, p_to_j), (q_from_i, q_from_j), (q_to_i, q_to_j)]
+        
         # if two orders share a point, previous one always overwrite it
         fill_point(rgb_array, q_from_i, q_from_j, 255,0,0)
         fill_point(rgb_array, q_to_i, q_to_j, 0, 0, 255)
         fill_point(rgb_array, p_from_i, p_from_j, 255, 255, 0)
         fill_point(rgb_array, p_to_i, p_to_j, 0, 255, 255)
-
-        for l in q_line[:q_half]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 0,150,150)
-        for l in q_line[q_half:]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 0,0,150)
-
-        for l in r_line[:r_half]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 150,0,0)
-        for l in r_line[r_half:]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 0,150,150)
-
-        for l in p_line[:p_half]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 150,150,0)
-        for l in p_line[p_half:]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 150,0,0)
-        '''
-        for l in q_line[:q_half]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 150,0,0)
         
-        for l in q_line[q_half:]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 0,0,150)
-
-        for l in p_line[:p_half]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 150,150,0)
+        x_this, y_this = generate_cases(rgb_array, points, a[8], a[9], a[10], figure=DRAW_FIGURE)
         
-        for l in p_line[p_half:]:
-            if not l in except_point:
-                fill_point(rgb_array, l[0], l[1], 0,150,150)
-        '''
+        x += x_this
+        y += y_this
+    
+    print('Total generaged case = {0}'.format(len(x)))
+    return x,y
 
-        x.append(rgb_array.reshape(STEP*STEP*3).tolist())
-        y.append(a[8:10])
+def fill_line(target_array, line, r1,g1,b1, r2,g2,b2):
+    line_half = len(line)//2+1
+    for l in line[:line_half]:
+        fill_point(target_array, l[0], l[1], r1,g1,b1)
+    for l in line[line_half:]:
+        fill_point(target_array, l[0], l[1], r2,g2,b2)
+    
+def generate_array(original_array, pts, form):
+    pfrom=pts[0]
+    pto=pts[1]
+    qfrom=pts[2]
+    qto=pts[3]
+    tmp_rgb_ary = np.empty_like(original_array)
+    tmp_rgb_ary[:] = original_array
+    if form==0:
+        line1 = line(pfrom[0], pfrom[1], pto[0], pto[1])
+        line2 = line(qfrom[0], qfrom[1], qto[0], qto[1])
 
-        if a[8]==1:
-            x_t.append(rgb_array.reshape(STEP*STEP*3).tolist())
-        else:
-            x_f.append(rgb_array.reshape(STEP*STEP*3).tolist())
-        
-        count +=1
+        fill_line(tmp_rgb_ary, line1, 150,150,150, 150,150,150)
+        fill_line(tmp_rgb_ary, line2, 150,150,150, 150,150,150)
+    elif form==1:
+        line1 = line(pfrom[0], pfrom[1], qfrom[0], qfrom[1])
+        line2 = line(qfrom[0], qfrom[1], pto[0], pto[1])
+        line3 = line(pto[0], pto[1], qto[0], qto[1])
 
-        ## print for debugging and illustrative examples
-        if count % 100 == 0:
-            im = Image.fromarray(rgb_array)
-            im.save("./result/fig/{0}_fig_{1}_{2}.png".format(a[8], a[10], a[11]))
-        
-    return x,y, x_t, x_f
+        fill_line(tmp_rgb_ary, line1, 150,150,0, 150,150,0)
+        fill_line(tmp_rgb_ary, line2, 150,0,0, 150,0,0)
+        fill_line(tmp_rgb_ary, line3, 0,150,150, 0,150,150)
+    elif form==2:
+        line1 = line(qfrom[0], qfrom[1], pfrom[0], pfrom[1])
+        line2 = line(pfrom[0], pfrom[1], pto[0], pto[1])
+        line3 = line(pto[0], pto[1], qto[0], qto[1])
+
+        fill_line(tmp_rgb_ary, line1, 150,0,0, 150,0,0)
+        fill_line(tmp_rgb_ary, line2, 150,150,0, 150,150,0)
+        fill_line(tmp_rgb_ary, line3, 0,150,150, 0,150,150)
+    elif form==3:
+        line1 = line(pfrom[0], pfrom[1], qfrom[0], qfrom[1])
+        line2 = line(qfrom[0], qfrom[1], qto[0], qto[1])
+        line3 = line(qto[0], qto[1], pto[0], pto[1])
+
+        fill_line(tmp_rgb_ary, line1, 150,150,0, 150,150,0)
+        fill_line(tmp_rgb_ary, line2, 150,0,0, 150,0,0)
+        fill_line(tmp_rgb_ary, line3, 0,0,150, 0,0,150)
+    elif form==4:
+        line1 = line(qfrom[0], qfrom[1], pfrom[0], pfrom[1])
+        line2 = line(pfrom[0], pfrom[1], qto[0], qto[1])
+        line3 = line(qto[0], qto[1], pto[0], pto[1])
+
+        fill_line(tmp_rgb_ary, line1, 150,0,0, 150,0,0)
+        fill_line(tmp_rgb_ary, line2, 150,150,0, 150,150,0)
+        fill_line(tmp_rgb_ary, line3, 0,0,150, 0,0,150)
+    return tmp_rgb_ary
+
+def generate_cases(original_array, pts, seq, aId, bId, figure=False):
+    """
+    pts = [(p_from_i, p_from_j), (p_to_i, p_to_j), (q_from_i, q_from_j), (q_to_i, q_to_j)]
+    """
+    pfrom=pts[0]
+    pto=pts[1]
+    qfrom=pts[2]
+    qto=pts[3]
+    x,y = [], []
+    if seq == 0: # separated, link pfrom-pto, qfrom-qto
+        tmp_rgb_ary = generate_array(original_array, pts, 0)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_sep', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([1,0])
+
+        tmp_rgb_ary = generate_array(original_array, pts, 1)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_dual', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([0,1])
+    elif seq == 1: # type 1, link pfrom-qfrom-pto-qto
+        tmp_rgb_ary = generate_array(original_array, pts, 1)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_dual', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([1,0])
+
+        tmp_rgb_ary = generate_array(original_array, pts, 0)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_sep', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([0,1])
+    elif seq == 2: # type 2, link qfrom-pfrom-pto-qto
+        tmp_rgb_ary = generate_array(original_array, pts, 2)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_dual', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([1,0])
+
+        tmp_rgb_ary = generate_array(original_array, pts, 0)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_sep', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([0,1])
+
+    elif seq == 3:
+        tmp_rgb_ary = generate_array(original_array, pts, 3)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_dual', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([1,0])
+
+        tmp_rgb_ary = generate_array(original_array, pts, 0)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_sep', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([0,1])
+    elif seq==4:
+        tmp_rgb_ary = generate_array(original_array, pts, 4)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_dual', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([1,0])
+
+        tmp_rgb_ary = generate_array(original_array, pts, 0)
+        if figure:
+            im = Image.fromarray(tmp_rgb_ary)
+            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_sep', aId, bId, STEP, GRAY_SCALE))
+        x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
+        y.append([0,1])
+
+    return x,y
 
 def fig_test(rgb_array):
     pi, pj = 1, 1
@@ -225,10 +326,12 @@ def fig_test(rgb_array):
     im = Image.fromarray(rgb_array)
     im.save("./result/fig/test_fig.png")
 
-def fill_point(nda, i,j,r,g,b):
-    nda[STEP-j][i][0] = r
-    nda[STEP-j][i][1] = g
-    nda[STEP-j][i][2] = b
+def fill_point(nda,i,j,r,g,b):
+    a = nda[STEP-j][i]
+    if (a[0] == GRAY_SCALE or a[0]==0) and (a[1] == GRAY_SCALE or a[1]==0) and (a[2] == GRAY_SCALE or a[2]==0):
+        nda[STEP-j][i][0] = r
+        nda[STEP-j][i][1] = g
+        nda[STEP-j][i][2] = b
 
 def line(i1,j1,i2, j2):
     x_axis_len = abs(i1-i2)
@@ -275,34 +378,19 @@ def line(i1,j1,i2, j2):
 
     return ret
 
-def pair_to_xy(dic, sep, weak, strong, mode='w'):
-
+def pair_to_xy(dic, sep, dual_picked):
     ret = []
     for pair in sep:
         a, b = pair[0], pair[1]
-        y=[0,1] # bc it comes from sep, y = 0
+        y= [0]
         x = dic[a] + dic[b] + y + [a,b]
         ret.append(x)
     
-    for pair in strong:
+    for pair in dual_picked:
         a, b = pair[0], pair[1]
-        y=[1,0] # bc it comes from strong binned, y = 1
+        y= [pair[2]]
         x = dic[a] + dic[b] + y + [a,b]
         ret.append(x)
-
-    if mode=='w':
-        for pair in weak:
-            a, b = pair[0], pair[1]
-            y=[1,0] # bc it comes from weak binned, y = 1
-            x = dic[a] + dic[b] + y + [a,b]
-            ret.append(x)
-    else:
-        pass
-        #for pair in weak:
-        #    a, b = pair[0], pair[1]
-        #    y=[0,1] # bc it comes from weak binned, but policy is strong so y = 0
-        #    x = dic[a] + dic[b] + y
-        #    ret.append(x)
     
     random.shuffle(ret)
     return ret
@@ -320,22 +408,6 @@ def draw_map(xy):
 
     return rgb_array_map
 
-def write_csv(lst, rgb=0):
-    random.shuffle(lst)
-    slicingInd = int(len(lst) * 0.75)
-    ltype = 'coords' if rgb==0 else 'rgb'
-    filename = './result/{0}_training_data.csv'.format(ltype)
-    with open(filename, 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
-        for a in lst[:slicingInd]:
-            writer.writerow(a)
-
-    filename = './result/{0}_test_data.csv'.format(ltype)
-    with open(filename, 'w', newline='') as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
-        for a in lst[slicingInd:]:
-            writer.writerow(a)
-
 def preproc(rgb=0):
     orderdata = []
     f = open('./data/order_data_2.csv')
@@ -345,15 +417,15 @@ def preproc(rgb=0):
         orderdata.append(row)
     f.close
 
-    coord_dic, sep, weak, strong = makeInputs(orderdata)
+    coord_dic, sep, dual_picked = makeInputs(orderdata)
     # print( len(sep), len(weak), len(strong) )  #check for values
 
-    coord_xy = pair_to_xy(coord_dic, sep, weak, strong, mode=SEPATED_MODE)
+    coord_xy = pair_to_xy(coord_dic, sep, dual_picked)
     if rgb==1:
         gray_map = draw_map(coord_xy)
-        rgb_x,rgb_y, x_t, x_f = xy_to_rgbArray(coord_xy, gray_map)
-        print('preprocessing complete w/ rgb inputs: interest/total {0}/{1}'.format(len(x_t), len(rgb_x)))
-        return rgb_x, rgb_y, x_t, x_f
+        rgb_x,rgb_y = xy_to_rgbArray(coord_xy, gray_map)
+        print('preprocessing complete w/ rgb inputs')
+        return rgb_x, rgb_y
     else:
         print('preprocessing complete w/ coordinates inputs')
-        write_csv(coord_xy, rgb)
+        return coord_xy
