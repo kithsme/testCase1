@@ -5,23 +5,62 @@ import time
 import random
 
 BATCH_SIZE = 100
-CONV_OUT_CH_NUM = 64
+CONV1_OUT_CH_NUM = 32
+CONV2_OUT_CH_NUM = 64
+CONV3_OUT_CH_NUM = 128
+CONV4_OUT_CH_NUM = 256
 FULLY_CONNECTED_NUM = 1024
 DROP_OUT_PROB = 0.5
+TRANING_SET_RATE = 0.5
 ITERATION = 100
 
-rgb_x, rgb_y, x_t, x_f = preproc.preproc(rgb=1)
-rgb_x_train = rgb_x[:int(len(rgb_y)*0.75)]
-rgb_x_test = rgb_x[int(len(rgb_y)*0.75):]
-rgb_y_train = rgb_y[:int(len(rgb_y)*0.75)]
-rgb_y_test = rgb_y[int(len(rgb_y)*0.75):]
-y_t = []
-y_f = []
-for _ in x_t:
+rgb_x, rgb_y = preproc.preproc(rgb=1)
+rgb_x_train = rgb_x[:int(len(rgb_y)*TRANING_SET_RATE)]
+rgb_x_test = rgb_x[int(len(rgb_y)*TRANING_SET_RATE):]
+rgb_y_train = rgb_y[:int(len(rgb_y)*TRANING_SET_RATE)]
+rgb_y_test = rgb_y[int(len(rgb_y)*TRANING_SET_RATE):]
+x_t,y_t = [],[]
+x_f,y_f = [],[]
+
+total_y_true = len(list(filter(lambda y: y==[1,0], rgb_y)))
+total_y_false = len(rgb_y) - total_y_true
+
+msgLst = []
+msgLst.append('Configurations:')
+msgLst.append('\tpreproc:')
+msgLst.append('\t\tMIN_LONG = {0}'.format(preproc.MIN_LONG))
+msgLst.append('\t\tMAX_LONG = {0}'.format(preproc.MAX_LONG))
+msgLst.append('\t\tMIN_LAT = {0}'.format(preproc.MIN_LAT))
+msgLst.append('\t\tMAX_LAT = {0}'.format(preproc.MAX_LAT))
+msgLst.append('\t\tGRAY_SCALE = {0}'.format(preproc.GRAY_SCALE))
+msgLst.append('\t\tSTEP = {0}'.format(preproc.STEP))
+msgLst.append('\t\tTIME_WINDOW = {0}'.format(preproc.TIME_WINDOW))
+msgLst.append('\tconv:')
+msgLst.append('\t\tBATCH_SIZE = {0}'.format(BATCH_SIZE))
+msgLst.append('\t\tCONV1_OUT_CH_NUM = {0}'.format(CONV1_OUT_CH_NUM))
+msgLst.append('\t\tCONV2_OUT_CH_NUM = {0}'.format(CONV2_OUT_CH_NUM))
+msgLst.append('\t\tCONV3_OUT_CH_NUM = {0}'.format(CONV3_OUT_CH_NUM))
+msgLst.append('\t\tCONV4_OUT_CH_NUM = {0}'.format(CONV4_OUT_CH_NUM))
+msgLst.append('\t\tFULLY_CONNECTED_NUM = {0}'.format(FULLY_CONNECTED_NUM))
+msgLst.append('\t\tDROP_OUT_PROB = {0}'.format(DROP_OUT_PROB))
+msgLst.append('\tTRANING_SET_RATE = {0}'.format(TRANING_SET_RATE))
+msgLst.append('\tITERATION = {0}'.format(ITERATION))
+
+
+for a in filter(lambda enu: enu[1]==[1,0], enumerate(rgb_y_test)):
+    x_t.append(rgb_x_test[a[0]])
     y_t.append([1,0])
 
-for _ in x_f:
+for a in filter(lambda enu: enu[1]==[0,1], enumerate(rgb_y_test)):
+    x_f.append(rgb_x_test[a[0]])
     y_f.append([0,1])
+
+msgLst.append('\nData Information:')
+msgLst.append('\tTOTAL SET SIZE = {0}'.format(len(rgb_x)))
+msgLst.append('\t\tTOTAL TRUE/FALSE COUNT = {0}/{1}'.format(total_y_true, total_y_false))
+msgLst.append('\tTRAINING SET SIZE = {0}'.format(len(rgb_x_train)))
+msgLst.append('\tTEST SET SIZE = {0}'.format(len(rgb_x_test)))
+msgLst.append('\t\tTOTAL TRUE/FALSE COUNT IN TEST SET = {0}/{1}'.format(len(x_t), len(x_f)))
 
 it = len(rgb_x_train)//BATCH_SIZE
 
@@ -30,16 +69,15 @@ sess = tf.InteractiveSession()
 x = tf.placeholder(tf.float32, shape=[None, preproc.STEP*preproc.STEP*3])
 y_ = tf.placeholder(tf.float32, shape=[None, 2])
 
-def shuffle(rgb_x, rgb_y):
-    shuffleIndLst = []
-    for i, a in enumerate(rgb_x):
-        shuffleIndLst.append(i)
-    random.shuffle(shuffleIndLst)
-    shuffled_x, shuffled_y = [], []
-    for i in shuffleIndLst:
-        shuffled_x.append(rgb_x[i])
-        shuffled_y.append(rgb_y[i])
-    return shuffled_x, shuffled_y
+def shift(rgb_x, rgb_y):
+    
+    rgb_x_firstBat = rgb_x[:BATCH_SIZE]
+    rgb_y_firstBat = rgb_y[:BATCH_SIZE]
+
+    rgb_x = rgb_x[BATCH_SIZE:] + rgb_x_firstBat
+    rgb_y = rgb_y[BATCH_SIZE:] + rgb_y_firstBat 
+
+    return rgb_x, rgb_y
 
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1) # small noise for symmetry breaking
@@ -55,8 +93,8 @@ def conv2d(x,W):
 def max_pool_2x2(x):
     return tf.nn.max_pool(x,ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
-W_conv1 = weight_variable([5,5,3,CONV_OUT_CH_NUM])
-b_conv1 = bias_variable([CONV_OUT_CH_NUM])
+W_conv1 = weight_variable([5,5,3,CONV1_OUT_CH_NUM])
+b_conv1 = bias_variable([CONV1_OUT_CH_NUM])
 
 x_image = tf.reshape(x, [-1,preproc.STEP,preproc.STEP,3])
 pool = 0
@@ -66,8 +104,8 @@ h_pool1 = max_pool_2x2(h_conv1)
 print(h_pool1)
 pool += 1
 
-W_conv2 = weight_variable([5,5,CONV_OUT_CH_NUM,CONV_OUT_CH_NUM])
-b_conv2 = bias_variable([CONV_OUT_CH_NUM])
+W_conv2 = weight_variable([5,5,CONV1_OUT_CH_NUM,CONV2_OUT_CH_NUM])
+b_conv2 = bias_variable([CONV2_OUT_CH_NUM])
 
 h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
 print(h_conv2)
@@ -75,16 +113,16 @@ h_pool2 = max_pool_2x2(h_conv2)
 print(h_pool2)
 pool += 1
 
-W_conv3 = weight_variable([5,5,CONV_OUT_CH_NUM,CONV_OUT_CH_NUM])
-b_conv3 = bias_variable([CONV_OUT_CH_NUM])
+W_conv3 = weight_variable([5,5,CONV2_OUT_CH_NUM,CONV3_OUT_CH_NUM])
+b_conv3 = bias_variable([CONV3_OUT_CH_NUM])
 h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3) + b_conv3)
 print(h_conv3)
 h_pool3 = max_pool_2x2(h_conv3)
 print(h_pool3)
 pool += 1
 
-W_conv4 = weight_variable([5,5,CONV_OUT_CH_NUM, CONV_OUT_CH_NUM])
-b_conv4 = bias_variable([CONV_OUT_CH_NUM])
+W_conv4 = weight_variable([5,5,CONV3_OUT_CH_NUM, CONV4_OUT_CH_NUM])
+b_conv4 = bias_variable([CONV4_OUT_CH_NUM])
 h_conv4 = tf.nn.relu(conv2d(h_pool3, W_conv4) + b_conv4)
 print(h_conv4)
 h_pool4 = max_pool_2x2(h_conv4)
@@ -92,10 +130,10 @@ print(h_pool4)
 pool += 1
 
 fc_num = int(preproc.STEP/(2**pool))
-W_fc1 = weight_variable([fc_num*fc_num*CONV_OUT_CH_NUM, FULLY_CONNECTED_NUM])
+W_fc1 = weight_variable([fc_num*fc_num*CONV4_OUT_CH_NUM, FULLY_CONNECTED_NUM])
 b_fc1 = bias_variable([FULLY_CONNECTED_NUM])
 
-h_pool4_flat = tf.reshape(h_pool4, [-1, fc_num*fc_num*CONV_OUT_CH_NUM])
+h_pool4_flat = tf.reshape(h_pool4, [-1, fc_num*fc_num*CONV4_OUT_CH_NUM])
 h_fc1 = tf.nn.relu(tf.matmul(h_pool4_flat, W_fc1)+b_fc1)
 
 keep_prob = tf.placeholder(tf.float32)
@@ -116,21 +154,51 @@ correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 print('\n-------------------------------------------------')
+msgLst.append('\n-------------------------------------------------')
 start_time = time.time()
 for j in range(ITERATION):
-    rgb_x_train, rgb_y_train = shuffle(rgb_x_train, rgb_y_train)
+    rgb_x_train, rgb_y_train = shift(rgb_x_train, rgb_y_train)
     for i in range(it):
         xx = rgb_x_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
         yy = rgb_y_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
         train_step.run(feed_dict={x: xx, y_: yy, keep_prob:DROP_OUT_PROB})
         if (it*j+i)%100==0: 
+            acc_train = accuracy.eval(feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0})
+            acc_test = accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
+            acc_true_only = accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0})
+            acc_false_only = accuracy.eval(feed_dict={x:x_f, y_:y_f, keep_prob:1.0})
             print('Batch ({0}/{1}) starts training...'.format((it*j+i+1), it*ITERATION))
-            print('\tconv: training accuracy: %g'%accuracy.eval(feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0}))
-            print('\tconv: test accuracy: %g'%accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0}))
-            print('\tconv: true only set accuracy: %g'%accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0}))
+            print('\tconv: training accuracy: %g'%acc_train)
+            print('\tconv: test accuracy: %g'%acc_test)
+            print('\tconv: true only set accuracy: %g'%acc_true_only)
+            print('\tconv: false only set accuracy: %g'%acc_false_only)
+            msgLst.append('Batch ({0}/{1}) starts training...'.format((it*j+i+1), it*ITERATION))
+            msgLst.append('\tconv: training accuracy: %g'%acc_train)
+            msgLst.append('\tconv: test accuracy: %g'%acc_test)
+            msgLst.append('\tconv: true only set accuracy: %g'%acc_true_only)
+            msgLst.append('\tconv: false only set accuracy: %g'%acc_false_only)
 
+
+f_train_acc = accuracy.eval(feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0})
+f_test_acc = accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
+f_true_only_acc = accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0})
+f_false_only_acc = accuracy.eval(feed_dict={x:x_f, y_:y_f, keep_prob:1.0})
 print('\n-------------------------------------------------')
-print('Final conv: test accuracy: %g'%accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0}))
-print('Final conv: true only set accuracy: %g'%accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0}))
-print('Final conv: false only set accuracy: %g'%accuracy.eval(feed_dict={x:x_f, y_:y_f, keep_prob:1.0}))
-print('Total spent time: {0}'.format(time.time()-start_time))
+print('Final conv: training accuracy: %g'%f_train_acc)
+print('Final conv: test accuracy: %g'%f_test_acc)
+print('Final conv: true only set accuracy: %g'%f_true_only_acc)
+print('Final conv: false only set accuracy: %g'%f_false_only_acc)
+print('Total spent time: {0} (sec)'.format(time.time()-start_time))
+msgLst.append('\n-------------------------------------------------')
+msgLst.append('Final conv: training accuracy: %g'%f_train_acc)
+msgLst.append('Final conv: test accuracy: %g'%f_test_acc)
+msgLst.append('Final conv: true only set accuracy: %g'%f_true_only_acc)
+msgLst.append('Final conv: false only set accuracy: %g'%f_false_only_acc)
+msgLst.append('Total spent time: {0} (sec)'.format(time.time()-start_time))
+
+file_name_suffix = time.strftime('%Y-%m-%d_%H-%M-%S')
+log_file = open('./result/log_{0}.txt'.format(file_name_suffix), 'w')
+for l in msgLst:
+    log_file.write(l+'\n')
+
+log_file.close()
