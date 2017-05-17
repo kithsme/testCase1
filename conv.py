@@ -4,15 +4,15 @@ import preproc
 import time
 import random
 
-BATCH_SIZE = 100
+BATCH_SIZE = 2500
 CONV1_OUT_CH_NUM = 32
 CONV2_OUT_CH_NUM = 64
 CONV3_OUT_CH_NUM = 128
 CONV4_OUT_CH_NUM = 256
 FULLY_CONNECTED_NUM = 1024
 DROP_OUT_PROB = 0.5
-TRANING_SET_RATE = 0.5
-ITERATION = 100
+TRANING_SET_RATE = 0.7
+ITERATION = 30
 
 rgb_x, rgb_y = preproc.preproc(rgb=1)
 rgb_x_train = rgb_x[:int(len(rgb_y)*TRANING_SET_RATE)]
@@ -54,6 +54,14 @@ for a in filter(lambda enu: enu[1]==[1,0], enumerate(rgb_y_test)):
 for a in filter(lambda enu: enu[1]==[0,1], enumerate(rgb_y_test)):
     x_f.append(rgb_x_test[a[0]])
     y_f.append([0,1])
+
+
+print('\nData Information:')
+print('\tTOTAL SET SIZE = {0}'.format(len(rgb_x)))
+print('\t\tTOTAL TRUE/FALSE COUNT = {0}/{1}'.format(total_y_true, total_y_false))
+print('\tTRAINING SET SIZE = {0}'.format(len(rgb_x_train)))
+print('\tTEST SET SIZE = {0}'.format(len(rgb_x_test)))
+print('\t\tTOTAL TRUE/FALSE COUNT IN TEST SET = {0}/{1}'.format(len(x_t), len(x_f)))
 
 msgLst.append('\nData Information:')
 msgLst.append('\tTOTAL SET SIZE = {0}'.format(len(rgb_x)))
@@ -157,32 +165,35 @@ print('\n-------------------------------------------------')
 msgLst.append('\n-------------------------------------------------')
 start_time = time.time()
 for j in range(ITERATION):
-    rgb_x_train, rgb_y_train = shift(rgb_x_train, rgb_y_train)
+    print('Iteration ({0}/{1}) starts training...'.format(j, ITERATION))
+    msgLst.append('Iteration ({0}/{1}) :'.format(j, ITERATION))
     for i in range(it):
         xx = rgb_x_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
         yy = rgb_y_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
         train_step.run(feed_dict={x: xx, y_: yy, keep_prob:DROP_OUT_PROB})
-        if (it*j+i)%100==0: 
-            acc_train = accuracy.eval(feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0})
-            acc_test = accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
-            acc_true_only = accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0})
-            acc_false_only = accuracy.eval(feed_dict={x:x_f, y_:y_f, keep_prob:1.0})
-            print('Batch ({0}/{1}) starts training...'.format((it*j+i+1), it*ITERATION))
-            print('\tconv: training accuracy: %g'%acc_train)
-            print('\tconv: test accuracy: %g'%acc_test)
-            print('\tconv: true only set accuracy: %g'%acc_true_only)
-            print('\tconv: false only set accuracy: %g'%acc_false_only)
-            msgLst.append('Batch ({0}/{1}) starts training...'.format((it*j+i+1), it*ITERATION))
-            msgLst.append('\tconv: training accuracy: %g'%acc_train)
-            msgLst.append('\tconv: test accuracy: %g'%acc_test)
-            msgLst.append('\tconv: true only set accuracy: %g'%acc_true_only)
-            msgLst.append('\tconv: false only set accuracy: %g'%acc_false_only)
+        partial_cost = sess.run(cross_entropy, feed_dict={x:xx, y_:yy, keep_prob:1.0})
+        sum_cost = sum_cost + partial_cost
+        print('...{0}...'.format(i+1))
+    
+    print('sum cost: {0}'.format(sum_cost))
+    
+    cost_test = sess.run(cross_entropy, feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
+    print('\tconv: test cost: %g'%cost_test)
+    msgLst.append('\tconv: test cost: %g'%cost_test)
+
+    cost_train = sess.run(cross_entropy, feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0})
+    print('\tconv: training cost: %g'%cost_train)
+    msgLst.append('\tconv: training cost: %g'%cost_train)
+
+    rgb_x_train, rgb_y_train = shift(rgb_x_train, rgb_y_train)
 
 
-f_train_acc = accuracy.eval(feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0})
-f_test_acc = accuracy.eval(feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
-f_true_only_acc = accuracy.eval(feed_dict={x:x_t, y_:y_t, keep_prob:1.0})
-f_false_only_acc = accuracy.eval(feed_dict={x:x_f, y_:y_f, keep_prob:1.0})
+
+
+f_train_acc = sess.run(accuracy, feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0})
+f_test_acc = sess.run(accuracy, feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
+f_true_only_acc = sess.run(accuracy, feed_dict={x:x_t, y_:y_t, keep_prob:1.0})
+f_false_only_acc = sess.run(accuracy, feed_dict={x:x_f, y_:y_f, keep_prob:1.0})
 print('\n-------------------------------------------------')
 print('Final conv: training accuracy: %g'%f_train_acc)
 print('Final conv: test accuracy: %g'%f_test_acc)
