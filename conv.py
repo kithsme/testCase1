@@ -7,12 +7,13 @@ import random
 BATCH_SIZE = 2500
 CONV1_OUT_CH_NUM = 32
 CONV2_OUT_CH_NUM = 64
-CONV3_OUT_CH_NUM = 128
+CONV3_OUT_CH_NUM = 64
 CONV4_OUT_CH_NUM = 256
 FULLY_CONNECTED_NUM = 1024
 DROP_OUT_PROB = 0.5
 TRANING_SET_RATE = 0.7
 ITERATION = 30
+
 
 rgb_x, rgb_y = preproc.preproc(rgb=1)
 rgb_x_train = rgb_x[:int(len(rgb_y)*TRANING_SET_RATE)]
@@ -95,53 +96,75 @@ def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape) # prevent dead neuron 
     return tf.Variable(initial)
 
-def conv2d(x,W):
-    return tf.nn.conv2d(x,W, strides=[1,1,1,1], padding='SAME')
+def conv2d(x,W, strd, pad):
+    return tf.nn.conv2d(x,W, strides=[1,strd, strd,1], padding=pad)
 
 def max_pool_2x2(x):
     return tf.nn.max_pool(x,ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
+x_image = tf.reshape(x, [-1,preproc.STEP,preproc.STEP,3])
+
+'''
 W_conv1 = weight_variable([5,5,3,CONV1_OUT_CH_NUM])
 b_conv1 = bias_variable([CONV1_OUT_CH_NUM])
-
-x_image = tf.reshape(x, [-1,preproc.STEP,preproc.STEP,3])
 pool = 0
-h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+
+h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1, 2, 'VALID') + b_conv1)
 print(h_conv1)
 h_pool1 = max_pool_2x2(h_conv1)
 print(h_pool1)
 pool += 1
 
-W_conv2 = weight_variable([5,5,CONV1_OUT_CH_NUM,CONV2_OUT_CH_NUM])
+W_conv2 = weight_variable([3,3,CONV1_OUT_CH_NUM,CONV2_OUT_CH_NUM])
 b_conv2 = bias_variable([CONV2_OUT_CH_NUM])
 
-h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2, 1, 'VALID') + b_conv2)
 print(h_conv2)
 h_pool2 = max_pool_2x2(h_conv2)
 print(h_pool2)
 pool += 1
 
-W_conv3 = weight_variable([5,5,CONV2_OUT_CH_NUM,CONV3_OUT_CH_NUM])
+W_conv3 = weight_variable([3,3,CONV2_OUT_CH_NUM,CONV3_OUT_CH_NUM])
 b_conv3 = bias_variable([CONV3_OUT_CH_NUM])
-h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3) + b_conv3)
+h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3, 1, 'SAME') + b_conv3)
 print(h_conv3)
 h_pool3 = max_pool_2x2(h_conv3)
 print(h_pool3)
 pool += 1
 
-W_conv4 = weight_variable([5,5,CONV3_OUT_CH_NUM, CONV4_OUT_CH_NUM])
-b_conv4 = bias_variable([CONV4_OUT_CH_NUM])
-h_conv4 = tf.nn.relu(conv2d(h_pool3, W_conv4) + b_conv4)
-print(h_conv4)
-h_pool4 = max_pool_2x2(h_conv4)
-print(h_pool4)
-pool += 1
+#W_conv4 = weight_variable([5,5,CONV3_OUT_CH_NUM, CONV4_OUT_CH_NUM])
+#b_conv4 = bias_variable([CONV4_OUT_CH_NUM])
+#h_conv4 = tf.nn.relu(conv2d(h_pool3, W_conv4) + b_conv4)
+#print(h_conv4)
+#h_pool4 = max_pool_2x2(h_conv4)
+#print(h_pool4)
+#pool += 1
+'''
 
-fc_num = int(preproc.STEP/(2**pool))
-W_fc1 = weight_variable([fc_num*fc_num*CONV4_OUT_CH_NUM, FULLY_CONNECTED_NUM])
+W_conv1 = weight_variable([7,7,3,CONV1_OUT_CH_NUM])
+b_conv1 = bias_variable([CONV1_OUT_CH_NUM])
+pool = 0
+
+h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1, 3, 'VALID') + b_conv1)
+print(h_conv1)
+
+W_conv2 = weight_variable([5,5,CONV1_OUT_CH_NUM,CONV2_OUT_CH_NUM])
+b_conv2 = bias_variable([CONV2_OUT_CH_NUM])
+
+h_conv2 = tf.nn.relu(conv2d(h_conv1, W_conv2, 2, 'VALID') + b_conv2)
+print(h_conv2)
+
+W_conv3 = weight_variable([3,3,CONV2_OUT_CH_NUM,CONV3_OUT_CH_NUM])
+b_conv3 = bias_variable([CONV3_OUT_CH_NUM])
+h_conv3 = tf.nn.relu(conv2d(h_conv2, W_conv3, 1, 'VALID') + b_conv3)
+print(h_conv3)
+
+#fc_num = int(preproc.STEP/(2**pool))
+fc_num = 6
+W_fc1 = weight_variable([fc_num*fc_num*CONV3_OUT_CH_NUM, FULLY_CONNECTED_NUM])
 b_fc1 = bias_variable([FULLY_CONNECTED_NUM])
 
-h_pool4_flat = tf.reshape(h_pool4, [-1, fc_num*fc_num*CONV4_OUT_CH_NUM])
+h_pool4_flat = tf.reshape(h_conv3, [-1, fc_num*fc_num*CONV3_OUT_CH_NUM])
 h_fc1 = tf.nn.relu(tf.matmul(h_pool4_flat, W_fc1)+b_fc1)
 
 keep_prob = tf.placeholder(tf.float32)
@@ -173,7 +196,7 @@ for j in range(ITERATION):
         train_step.run(feed_dict={x: xx, y_: yy, keep_prob:DROP_OUT_PROB})
         print('...{0}...'.format(i+1))
     
-    
+    '''
     cost_test = sess.run(cross_entropy, feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
     print('\tconv: test cost: %g'%cost_test)
     msgLst.append('\tconv: test cost: %g'%cost_test)
@@ -181,7 +204,7 @@ for j in range(ITERATION):
     cost_train = sess.run(cross_entropy, feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0})
     print('\tconv: training cost: %g'%cost_train)
     msgLst.append('\tconv: training cost: %g'%cost_train)
-
+    '''
     rgb_x_train, rgb_y_train = shift(rgb_x_train, rgb_y_train)
 
 
