@@ -392,6 +392,7 @@ def pair_to_xy(dic, sep, dual_picked):
         x = dic[a] + dic[b] + y + [a,b]
         ret.append(x)
     
+    random.seed(1120)
     random.shuffle(ret)
     return ret
 
