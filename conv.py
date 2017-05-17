@@ -171,11 +171,8 @@ for j in range(ITERATION):
         xx = rgb_x_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
         yy = rgb_y_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
         train_step.run(feed_dict={x: xx, y_: yy, keep_prob:DROP_OUT_PROB})
-        partial_cost = sess.run(cross_entropy, feed_dict={x:xx, y_:yy, keep_prob:1.0})
-        sum_cost = sum_cost + partial_cost
         print('...{0}...'.format(i+1))
     
-    print('sum cost: {0}'.format(sum_cost))
     
     cost_test = sess.run(cross_entropy, feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
     print('\tconv: test cost: %g'%cost_test)
