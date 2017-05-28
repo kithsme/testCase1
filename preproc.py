@@ -10,10 +10,11 @@ MIN_LONG = 127.07
 MAX_LONG = 127.14
 MIN_LAT = 37.48
 MAX_LAT = 37.53
-GRAY_SCALE = 15
+GRAY_SCALE = 45
 STEP = 32
-TIME_WINDOW = 6
-DRAW_FIGURE = True
+TIME_WINDOW = 16
+DRAW_FIGURE = False
+SEED = 1120
 
 def makeInputs(matrix):
     
@@ -392,7 +393,7 @@ def pair_to_xy(dic, sep, dual_picked):
         x = dic[a] + dic[b] + y + [a,b]
         ret.append(x)
     
-    random.seed(1120)
+    random.seed(SEED)
     random.shuffle(ret)
     return ret
 
