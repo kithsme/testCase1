@@ -126,6 +126,11 @@ def map(lon, lat):
     return STEP-processed(lat), processed(lon) 
     for i, j in figure
     """
+
+    if MIN_LONG > lon or lon > MAX_LONG or MIN_LAT > lat or lat > MAX_LAT:
+        # assume that x,y instead of lon, lat
+        return int(lon), int(lat) 
+
     diff_long = (MAX_LONG-MIN_LONG)/(STEP-1)
     diff_lat = (MAX_LAT-MIN_LAT)/(STEP-1)
 
@@ -230,7 +235,7 @@ def generate_array(original_array, pts, form):
         fill_line(tmp_rgb_ary, line3, 0,0,150, 0,0,150)
     return tmp_rgb_ary
 
-def generate_cases(original_array, pts, seq, aId, bId, figure=False):
+def generate_cases(original_array, pts, seq, aId, bId, figure=False, figdir="./result/fig/"):
     """
     pts = [(p_from_i, p_from_j), (p_to_i, p_to_j), (q_from_i, q_from_j), (q_to_i, q_to_j)]
     """
@@ -243,42 +248,42 @@ def generate_cases(original_array, pts, seq, aId, bId, figure=False):
         tmp_rgb_ary = generate_array(original_array, pts, 0)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_sep', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir,'right_sep', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([1,0])
 
         tmp_rgb_ary = generate_array(original_array, pts, 1)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_dual', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_dual', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([0,1])
     elif seq == 1: # type 1, link pfrom-qfrom-pto-qto
         tmp_rgb_ary = generate_array(original_array, pts, 1)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_dual', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'right_dual', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([1,0])
 
         tmp_rgb_ary = generate_array(original_array, pts, 0)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_sep', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_sep', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([0,1])
     elif seq == 2: # type 2, link qfrom-pfrom-pto-qto
         tmp_rgb_ary = generate_array(original_array, pts, 2)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_dual', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir,'right_dual', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([1,0])
 
         tmp_rgb_ary = generate_array(original_array, pts, 0)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_sep', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_sep', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([0,1])
 
@@ -286,28 +291,28 @@ def generate_cases(original_array, pts, seq, aId, bId, figure=False):
         tmp_rgb_ary = generate_array(original_array, pts, 3)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_dual', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'right_dual', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([1,0])
 
         tmp_rgb_ary = generate_array(original_array, pts, 0)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_sep', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_sep', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([0,1])
     elif seq==4:
         tmp_rgb_ary = generate_array(original_array, pts, 4)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('right_dual', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'right_dual', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([1,0])
 
         tmp_rgb_ary = generate_array(original_array, pts, 0)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
-            im.save("./result/fig/{0}_fig_{1}_{2}_{3}pix_{4}gray.png".format('wrong_sep', aId, bId, STEP, GRAY_SCALE))
+            im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_sep', aId, bId, STEP, GRAY_SCALE))
         x.append(tmp_rgb_ary.reshape(STEP*STEP*3).tolist())
         y.append([0,1])
 
