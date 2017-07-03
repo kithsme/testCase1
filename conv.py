@@ -95,50 +95,64 @@ def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape) # prevent dead neuron 
     return tf.Variable(initial)
 
-def conv2d(x,W):
-    return tf.nn.conv2d(x,W, strides=[1,1,1,1], padding='SAME')
+def conv2d(x,W,s):
+    return tf.nn.conv2d(x,W, strides=[1,s,s,1], padding='SAME')
 
 def max_pool_2x2(x):
     return tf.nn.max_pool(x,ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
+def eval_acc(sess, acc_f, x_lst, y_lst):
+    total_len = len(x_lst)
+    num_batch = total_len//10000 + 1
+    last_batch_size = total_len - 10000 * (num_batch-1) 
+    total_predic = 0
+    for i in range(num_batch):
+        k = 10000*i
+        j = min(k+10000, total_len)
+        f_partial_acc = sess.run(acc_f, feed_dict={x:x_lst[k:j], y_:y_lst[k:j], keep_prob:1.0})
+        total_predic += (j-k) * f_partial_acc
+    
+    return total_predic/total_len
+
 with tf.device('/gpu:0'):
-    W_conv1 = weight_variable([5,5,3,CONV1_OUT_CH_NUM])
+    W_conv1 = weight_variable([3,3,3,CONV1_OUT_CH_NUM])
     b_conv1 = bias_variable([CONV1_OUT_CH_NUM])
 
     x_image = tf.reshape(x, [-1,preproc.STEP,preproc.STEP,3])
     pool = 0
-    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
+    h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1, 1) + b_conv1)
     print(h_conv1)
     h_pool1 = max_pool_2x2(h_conv1)
     print(h_pool1)
     pool += 1
 
-    W_conv2 = weight_variable([5,5,CONV1_OUT_CH_NUM,CONV2_OUT_CH_NUM])
+    W_conv2 = weight_variable([3,3,CONV1_OUT_CH_NUM,CONV2_OUT_CH_NUM])
     b_conv2 = bias_variable([CONV2_OUT_CH_NUM])
 
-    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+    h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2, 1) + b_conv2)
     print(h_conv2)
     h_pool2 = max_pool_2x2(h_conv2)
     print(h_pool2)
     pool += 1
 
-    W_conv3 = weight_variable([5,5,CONV2_OUT_CH_NUM,CONV3_OUT_CH_NUM])
+    W_conv3 = weight_variable([3,3,CONV2_OUT_CH_NUM,CONV3_OUT_CH_NUM])
     b_conv3 = bias_variable([CONV3_OUT_CH_NUM])
-    h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3) + b_conv3)
+    h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3, 1) + b_conv3)
     print(h_conv3)
     h_pool3 = max_pool_2x2(h_conv3)
     print(h_pool3)
     pool += 1
 
-    W_conv4 = weight_variable([5,5,CONV3_OUT_CH_NUM, CONV4_OUT_CH_NUM])
+    W_conv4 = weight_variable([3,3,CONV3_OUT_CH_NUM, CONV4_OUT_CH_NUM])
     b_conv4 = bias_variable([CONV4_OUT_CH_NUM])
-    h_conv4 = tf.nn.relu(conv2d(h_pool3, W_conv4) + b_conv4)
+    h_conv4 = tf.nn.relu(conv2d(h_pool3, W_conv4, 1) + b_conv4)
     print(h_conv4)
     h_pool4 = max_pool_2x2(h_conv4)
     print(h_pool4)
     pool += 1
 
-    fc_num = int(preproc.STEP/(2**pool))
+    #fc_num = int(preproc.STEP/(2**pool))
+    fc_num = 2
     W_fc1 = weight_variable([fc_num*fc_num*CONV4_OUT_CH_NUM, FULLY_CONNECTED_NUM])
     b_fc1 = bias_variable([FULLY_CONNECTED_NUM])
 
@@ -170,33 +184,35 @@ with tf.Session() as sess:
     msgLst.append('\n-------------------------------------------------')
     start_time = time.time()
     for j in range(ITERATION):
-        print('Iteration ({0}/{1}) starts training...'.format(j, ITERATION))
-        msgLst.append('Iteration ({0}/{1}) :'.format(j, ITERATION))
+        print('Iteration ({0}/{1}) starts training...'.format((j+1), ITERATION))
+        msgLst.append('Iteration ({0}/{1}) :'.format((j+1), ITERATION))
         for i in range(it):
             xx = rgb_x_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
             yy = rgb_y_train[BATCH_SIZE*i:BATCH_SIZE*i+BATCH_SIZE]
             train_step.run(feed_dict={x: xx, y_: yy, keep_prob:DROP_OUT_PROB})
 
+        if j % 50 == 0 :
+            f_train_acc = eval_acc(sess, accuracy, rgb_x_train, rgb_y_train)
+            print('\tIter {0} training accuracy = {1}'.format((j+1), f_train_acc))
+
         rgb_x_train, rgb_y_train = shift(rgb_x_train, rgb_y_train)
 
     #f_train_acc = sess.run(accuracy, feed_dict={x:rgb_x_train, y_:rgb_y_train, keep_prob:1.0})
-    if len(rgb_x_test) > 20000:
-        f_test_acc_20000 = sess.run(accuracy, feed_dict={x:rgb_x_test[:20000], y_:rgb_y_test[:20000], keep_prob:1.0})
-        f_test_acc_20001 = sess.run(accuracy, feed_dict={x:rgb_x_test[20000:], y_:rgb_y_test[20000:], keep_prob:1.0})
-        f_test_acc = (f_test_acc_20000 * 20000 + f_test_acc_20001*(len(rgb_x_test)-20000))/len(rgb_x_test)
-    else:
-        f_test_acc = sess.run(accuracy, feed_dict={x:rgb_x_test, y_:rgb_y_test, keep_prob:1.0})
+    print('\nTraining complete!\n')
+    f_train_acc = eval_acc(sess, accuracy, rgb_x_train, rgb_y_train)
+    print('Training accuracy = {0}'.format(f_train_acc))
+    msgLst.append('Training accuracy = {0}'.format(f_train_acc))
 
-    f_true_only_acc = sess.run(accuracy, feed_dict={x:x_t, y_:y_t, keep_prob:1.0})
-    f_false_only_acc = sess.run(accuracy, feed_dict={x:x_f, y_:y_f, keep_prob:1.0})
+    f_test_acc = eval_acc(sess, accuracy, rgb_x_test, rgb_y_test)
+    f_true_only_acc = eval_acc(sess, accuracy, x_t, y_t)
+    f_false_only_acc = eval_acc(sess, accuracy, x_f, y_f)
+    
     print('\n-------------------------------------------------')
-    #print('Final conv: training accuracy: %g'%f_train_acc)
     print('Final conv: test accuracy: %g'%f_test_acc)
     print('Final conv: true only set accuracy: %g'%f_true_only_acc)
     print('Final conv: false only set accuracy: %g'%f_false_only_acc)
     print('Total spent time: {0} (sec)'.format(time.time()-start_time))
     msgLst.append('\n-------------------------------------------------')
-    #msgLst.append('Final conv: training accuracy: %g'%f_train_acc)
     msgLst.append('Final conv: test accuracy: %g'%f_test_acc)
     msgLst.append('Final conv: true only set accuracy: %g'%f_true_only_acc)
     msgLst.append('Final conv: false only set accuracy: %g'%f_false_only_acc)
