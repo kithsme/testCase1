@@ -5,6 +5,7 @@ import random
 from PIL import Image
 from datetime import datetime as dt
 from datetime import timedelta as td
+import re
 
 MIN_LONG = 127.07
 MAX_LONG = 127.14
@@ -414,6 +415,64 @@ def draw_map(xy):
     im.save("./result/fig/whole_fig.png")
 
     return rgb_array_map
+
+
+def updateDicts(req_dic, dem_dic, aRecord):
+    p_r1, p_r2 = map(aRecord[0], aRecord[1])
+    p_r = '({0},{1})'.format(p_r1, p_r2)
+    p_d1, p_d2 = map(aRecord[2], aRecord[3])
+    p_d = '({0},{1})'.format(p_d1, p_d2)
+    q_r1, q_r2 = map(aRecord[4], aRecord[5])
+    q_r = '({0},{1})'.format(q_r1, q_r2)
+
+    if q_r in req_dic[p_r]:
+        req_dic[p_r][q_r] += 1
+    else:
+        req_dic[p_r][q_r] = 1
+
+    if p_d in dem_dic[p_r]:
+        dem_dic[p_r][p_d] += 1
+    else:
+        dem_dic[p_r][p_d] = 1
+
+
+def getMatAggregation(size, coord_xy):
+    mat4req = {}
+    mat4dem = {}
+    for i in range(size):
+        for j in range(size):
+            key = '({0},{1})'.format(i,j)
+            mat4req[key] = {}
+            mat4dem[key] = {}
+
+    for a in coord_xy:
+        updateDicts(mat4req, mat4dem, a)
+
+    new_mat4req = {k:v for k,v in mat4req.items() if v}
+    new_mat4dem = {k:v for k,v in mat4dem.items() if v}
+
+    return new_mat4req, new_mat4dem
+
+def getCoordsFromKey(key):
+    return [int(i) for i in re.findall('\d+', key)]
+
+def getCloser(dic, dic_key, closeDist):
+    # Assume that closeDist is a positive integer
+    # return close key, val and sum(val) of rest(far) keys
+    new_dic = {}
+    dic_key_coord = getCoordsFromKey(dic_key)
+    sumIn = 0
+    sumOut = 0
+    for key in dic:
+        key_coord = getCoordsFromKey(key)
+        if (dic_key_coord[0]-closeDist) <= key_coord[0] <= (dic_key_coord[0]+closeDist) and (dic_key_coord[1]-closeDist) <= key_coord[1] <= (dic_key_coord[1]+closeDist):
+            new_dic[key] = dic[key]
+            sumIn += dic[key]
+        else:
+            sumOut += dic[key]
+    
+    return new_dic, sumIn, sumOut
+        
 
 def preproc(rgb=0):
     orderdata = []
