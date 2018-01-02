@@ -49,7 +49,7 @@ def draw_map(xy, conf):
 
     return rgb_array_map
 
-def getHitmap(windowed_x, pdtype='d', conf):
+def getHitmap(windowed_x, pdtype, conf):
     hit_map = np.zeros((int(conf[5]),int(conf[5])), 'uint8')
     for a in windowed_x:
         i= -1
@@ -73,7 +73,7 @@ def xy_to_rgbArray(xy, gray_map, conf):
         a[4,5]: following from long,lat
         a[6,7]: following to long,lat
         a[8]: type (0~4)
-        a[9,10]: prev order id , following order id 
+        a[9,10]: prev order id, following order id 
         """
         # i, j index is reverted b/c it is stored to array
         rgb_array = np.empty_like(gray_map)
@@ -120,8 +120,11 @@ def generate_array(original_array, pts, form, conf):
         line1 = line(pfrom[0], pfrom[1], pto[0], pto[1])
         line2 = line(qfrom[0], qfrom[1], qto[0], qto[1])
 
-        fill_line(tmp_rgb_ary, line1, 150,150,150, 150,150,150, conf)
-        fill_line(tmp_rgb_ary, line2, 150,150,150, 150,150,150, conf)
+        #fill_line(tmp_rgb_ary, line1, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line2, 15,15,15, 15,15,15, conf)
+        fill_line(tmp_rgb_ary, line1, 150,150,0, 150,150,0, conf)
+        fill_line(tmp_rgb_ary, line2, 0,150,150, 0,150,150, conf)
+
     elif form==1:
         line1 = line(pfrom[0], pfrom[1], qfrom[0], qfrom[1])
         line2 = line(qfrom[0], qfrom[1], pto[0], pto[1])
@@ -130,6 +133,9 @@ def generate_array(original_array, pts, form, conf):
         fill_line(tmp_rgb_ary, line1, 150,150,0, 150,150,0, conf)
         fill_line(tmp_rgb_ary, line2, 150,0,0, 150,0,0, conf)
         fill_line(tmp_rgb_ary, line3, 0,150,150, 0,150,150, conf)
+        #fill_line(tmp_rgb_ary, line1, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line2, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line3, 15,15,15, 15,15,15, conf)
     elif form==2:
         line1 = line(qfrom[0], qfrom[1], pfrom[0], pfrom[1])
         line2 = line(pfrom[0], pfrom[1], pto[0], pto[1])
@@ -138,6 +144,9 @@ def generate_array(original_array, pts, form, conf):
         fill_line(tmp_rgb_ary, line1, 150,0,0, 150,0,0, conf)
         fill_line(tmp_rgb_ary, line2, 150,150,0, 150,150,0, conf)
         fill_line(tmp_rgb_ary, line3, 0,150,150, 0,150,150, conf)
+        #fill_line(tmp_rgb_ary, line1, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line2, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line3, 15,15,15, 15,15,15, conf)
     elif form==3:
         line1 = line(pfrom[0], pfrom[1], qfrom[0], qfrom[1])
         line2 = line(qfrom[0], qfrom[1], qto[0], qto[1])
@@ -146,6 +155,9 @@ def generate_array(original_array, pts, form, conf):
         fill_line(tmp_rgb_ary, line1, 150,150,0, 150,150,0, conf)
         fill_line(tmp_rgb_ary, line2, 150,0,0, 150,0,0, conf)
         fill_line(tmp_rgb_ary, line3, 0,0,150, 0,0,150, conf)
+        #fill_line(tmp_rgb_ary, line1, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line2, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line3, 15,15,15, 15,15,15, conf)
     elif form==4:
         line1 = line(qfrom[0], qfrom[1], pfrom[0], pfrom[1])
         line2 = line(pfrom[0], pfrom[1], qto[0], qto[1])
@@ -154,6 +166,9 @@ def generate_array(original_array, pts, form, conf):
         fill_line(tmp_rgb_ary, line1, 150,0,0, 150,0,0, conf)
         fill_line(tmp_rgb_ary, line2, 150,150,0, 150,150,0, conf)
         fill_line(tmp_rgb_ary, line3, 0,0,150, 0,0,150, conf)
+        #fill_line(tmp_rgb_ary, line1, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line2, 15,15,15, 15,15,15, conf)
+        #fill_line(tmp_rgb_ary, line3, 15,15,15, 15,15,15, conf)
     
     return tmp_rgb_ary
 
@@ -210,14 +225,14 @@ def generate_cases(original_array, pts, seq, aId, bId, conf, figure=False, figdi
             im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'right_dual', aId, bId, int(conf[5]), int(conf[4])))
         x.append(tmp_rgb_ary.reshape(int(conf[5])*int(conf[5])*3).tolist())
         y.append([1,0])
-        '''
+        
         tmp_rgb_ary = generate_array(original_array, pts, 0, conf)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
             im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_sep', aId, bId, int(conf[5]), int(conf[4])))
         x.append(tmp_rgb_ary.reshape(int(conf[5])*int(conf[5])*3).tolist())
         y.append([0,1])
-        '''
+        
     elif seq == 2: # type 2, link qfrom-pfrom-pto-qto
         tmp_rgb_ary = generate_array(original_array, pts, 2, conf)
         if figure:
@@ -225,14 +240,14 @@ def generate_cases(original_array, pts, seq, aId, bId, conf, figure=False, figdi
             im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir,'right_dual', aId, bId, int(conf[5]), int(conf[4])))
         x.append(tmp_rgb_ary.reshape(int(conf[5])*int(conf[5])*3).tolist())
         y.append([1,0])
-        '''
+        
         tmp_rgb_ary = generate_array(original_array, pts, 0, conf)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
             im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_sep', aId, bId, int(conf[5]), int(conf[4])))
         x.append(tmp_rgb_ary.reshape(int(conf[5])*int(conf[5])*3).tolist())
         y.append([0,1])
-        '''
+        
     elif seq == 3:
         tmp_rgb_ary = generate_array(original_array, pts, 3, conf)
         if figure:
@@ -240,14 +255,14 @@ def generate_cases(original_array, pts, seq, aId, bId, conf, figure=False, figdi
             im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'right_dual', aId, bId, int(conf[5]), int(conf[4])))
         x.append(tmp_rgb_ary.reshape(int(conf[5])*int(conf[5])*3).tolist())
         y.append([1,0])
-        '''
+        
         tmp_rgb_ary = generate_array(original_array, pts, 0, conf)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
             im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_sep', aId, bId, int(conf[5]), int(conf[4])))
         x.append(tmp_rgb_ary.reshape(int(conf[5])*int(conf[5])*3).tolist())
         y.append([0,1])
-        '''
+        
     elif seq==4:
         tmp_rgb_ary = generate_array(original_array, pts, 4, conf)
         if figure:
@@ -255,14 +270,14 @@ def generate_cases(original_array, pts, seq, aId, bId, conf, figure=False, figdi
             im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'right_dual', aId, bId, int(conf[5]), int(conf[4])))
         x.append(tmp_rgb_ary.reshape(int(conf[5])*int(conf[5])*3).tolist())
         y.append([1,0])
-        '''
+        
         tmp_rgb_ary = generate_array(original_array, pts, 0, conf)
         if figure:
             im = Image.fromarray(tmp_rgb_ary)
             im.save("{0}{1}_fig_{2}_{3}_{4}pix_{5}gray.png".format(figdir, 'wrong_sep', aId, bId, int(conf[5]), int(conf[4])))
         x.append(tmp_rgb_ary.reshape(int(conf[5])*int(conf[5])*3).tolist())
         y.append([0,1])
-        '''
+        
     return x,y
 
 def fig_test(rgb_array, conf):

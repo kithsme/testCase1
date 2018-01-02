@@ -11,7 +11,86 @@ import re
 global config
 config = conf.conf()
 
-def makeInputs(matrix):
+def putTimeinDate(datet, timet):
+
+    a = datet
+    h = timet.hour
+    mi = timet.minute
+    s = timet.second
+    a = a.replace(hour=h, minute=mi, second=s)
+
+    return a
+
+def generateLabels(pairList):
+    ret = []
+    for d in pairList:
+        if d['aRider'] != d['bRider']:
+            d['y'] = 0
+        else:
+            catchTime = max(d['aCatchTime'], d['bCatchTime'])
+            pickupTime = min(d['aPickTime'], d['bPickTime'])
+            
+            if catchTime < pickupTime:
+
+                if d['aPickTime'] < d['bPickTime'] < d['aDelTime'] < d['bDelTime']:
+                    d['y'] = 1
+                elif d['bPickTime'] < d['aPickTime'] < d['aDelTime'] < d['bDelTime']:
+                    d['y'] = 2
+                elif d['aPickTime'] < d['bPickTime'] < d['bDelTime'] < d['aDelTime']:
+                    d['y'] = 3    
+                elif d['bPickTime'] < d['aPickTime'] < d['bDelTime'] < d['aDelTime']:
+                    d['y'] = 4 
+                else:
+                    d['y'] = 0
+            else :
+                d['y'] = 0 
+        ret.append(d)
+
+    return ret
+
+def makePairs(matrix):
+
+    matrix = sorted(matrix, key=lambda x: x[0] )
+    ret = []
+
+    for i, aRow in enumerate(matrix[:-1]):
+        count = 0
+        for j in range(i+1, len(matrix)):
+
+            if count>3:
+                break
+
+            bRow = matrix[j]
+            twindow = td(seconds=config.TIME_WINDOW*60)
+
+            if aRow[4]+twindow > bRow[4] :
+                rowid = aRow[1]+'_'+bRow[1]
+                tmp_dic = {'id': rowid}
+                tmp_dic['aPickLong'] = aRow[2]
+                tmp_dic['aPickLat'] = aRow[3]
+                tmp_dic['aRequestedTime'] = aRow[4]
+                tmp_dic['aDelLong'] = aRow[5]
+                tmp_dic['aDelLat'] = aRow[6]
+                tmp_dic['aRider'] = aRow[7]
+                tmp_dic['aCatchTime'] = aRow[8]
+                tmp_dic['aPickTime'] = aRow[9]
+                tmp_dic['aDelTime'] = aRow[10]
+                
+                tmp_dic['bPickLong'] = bRow[2]
+                tmp_dic['bPickLat'] = bRow[3]
+                tmp_dic['bRequestedTime'] = bRow[4]
+                tmp_dic['bDelLong'] = bRow[5]
+                tmp_dic['bDelLat'] = bRow[6]
+                tmp_dic['bRider'] = bRow[7]
+                tmp_dic['bCatchTime'] = bRow[8]
+                tmp_dic['bPickTime'] = bRow[9]
+                tmp_dic['bDelTime'] = bRow[10]
+                ret.append(tmp_dic)
+            else:
+                count+=1
+    return ret
+
+'''def makeInputs(matrix):
     
     coorDic={}
     adjDic = {}
@@ -44,8 +123,7 @@ def makeInputs(matrix):
     sep = separated(matrix, dual_picked)
 
 
-    return coorDic, sep, dual_picked
-
+    return coorDic, sep, dual_picked'''
 def parse_date(datetimeStr):
     if type(datetimeStr) is type(dt):
         return datetimeStr
@@ -56,7 +134,7 @@ def parse_date(datetimeStr):
             pass
     raise ValueError('No valide date format found for %s'%(datetimeStr))
 
-def separated(matrix, dual_picked):
+'''def separated(matrix, dual_picked):
     sepa = []
     twindow = td(seconds=config.TIME_WINDOW*60)
     for i in range(len(matrix)-1):
@@ -73,9 +151,9 @@ def separated(matrix, dual_picked):
                     sepa.append( (aId,bId) )
             else:
                 break
-    return sepa
+    return sepa'''
 
-def get_dual_picked(adjDic):
+'''def get_dual_picked(adjDic):
     """
     return tuples (order1_id, order2_id, dual_picked_type) 
         # type 1 : pick1 pick2 del1 del2
@@ -114,7 +192,7 @@ def get_dual_picked(adjDic):
             prev = a # order update and next
     
     print('Total {0} duals, 1: {1}, 2: {2}, 3: {3}, 4: {4}'.format(type1_cnt+type2_cnt+type3_cnt+type4_cnt, type1_cnt, type2_cnt, type3_cnt, type4_cnt))
-    return dual_picked
+    return dual_picked'''
 
 def map(lon, lat):
     """
@@ -137,7 +215,7 @@ def map(lon, lat):
         print(lon,lat)
     return a,b
 
-def pair_to_xy(dic, sep, dual_picked):
+'''def pair_to_xy(dic, sep, dual_picked):
     ret = []
     for pair in sep:
         a, b = pair[0], pair[1]
@@ -150,6 +228,29 @@ def pair_to_xy(dic, sep, dual_picked):
         y= [pair[2]]
         x = dic[a] + dic[b] + y + [a,b]
         ret.append(x)
+    
+    random.seed(config.SEED)
+    random.shuffle(ret)
+    return ret'''
+def pair_to_xy(pairs):
+    ret = []
+    for p in pairs:
+        
+        a,b = p['id'].split( '_')
+
+        xy = []
+        xy.append(p['aPickLong'])
+        xy.append(p['aPickLat'])
+        xy.append(p['aDelLong'])
+        xy.append(p['aDelLat'])
+        xy.append(p['bPickLong'])
+        xy.append(p['bPickLat'])
+        xy.append(p['bDelLong'])
+        xy.append(p['bDelLat'])
+        xy.append(p['y'])
+        xy.append(a)
+        xy.append(b)
+        ret.append(xy)
     
     random.seed(config.SEED)
     random.shuffle(ret)
@@ -217,13 +318,30 @@ def preproc():
     csvReader = csv.reader(f)
 
     for row in csvReader:
+        dt = parse_date(row[0])
+        timeUp = parse_date(row[4])
+        timeCatch = parse_date(row[8])
+        timePickup = parse_date(row[9])
+        timeDeliver = parse_date(row[10])
+
+        row[2] = float(row[2])
+        row[3] = float(row[3])
+        row[5] = float(row[5])
+        row[6] = float(row[6])
+
+        row[0] = dt
+        row[4] = dt.replace(hour=timeUp.hour, minute=timeUp.minute, second=timeUp.second)
+        row[8] = dt.replace(hour=timeCatch.hour, minute=timeCatch.minute, second=timeCatch.second)
+        row[9] = dt.replace(hour=timePickup.hour, minute=timePickup.minute, second=timePickup.second)
+        row[10] = dt.replace(hour=timeDeliver.hour, minute=timeDeliver.minute, second=timeDeliver.second)
+        
         orderdata.append(row)
     f.close
 
+
     # add statistics using part
-    coord_dic, sep, dual_picked = makeInputs(orderdata)
-    coord_xy = pair_to_xy(coord_dic, sep, dual_picked)
+    pairs = makePairs(orderdata)
+    pairs = generateLabels(pairs)
+    coord_xy = pair_to_xy(pairs)
     print('preprocessing complete w/ coordinates inputs')
     return coord_xy
-
-preproc()

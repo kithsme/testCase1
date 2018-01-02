@@ -271,9 +271,15 @@ with tf.device('/gpu:0'):
 
     y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
 
+    #y_conv = tf.nn.sigmoid(y_conv)
+
     cross_entropy = tf.reduce_mean(
         tf.nn.softmax_cross_entropy_with_logits(labels=y_, logits=y_conv)
     )
+
+    #loss = tf.reduce_sum(y_*tf.log(y_conv) + (1-y_)*tf.log(y_conv))
+
+
     train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
 
