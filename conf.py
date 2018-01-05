@@ -12,7 +12,7 @@ class conf():
         self.MAX_LONG = 127.14
         self.MIN_LAT = 37.48
         self.MAX_LAT = 37.53
-        self.GRAY_SCALE = 1
+        self.GRAY_SCALE = 25
         self.STEP = 32
         self.TIME_WINDOW = 5 # minutes
         self.DRAW_FIGURE = True
