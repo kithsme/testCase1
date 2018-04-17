@@ -312,7 +312,7 @@ def getCloser(dic, dic_key, closeDist):
     
     return new_dic, sumIn, sumOut
 
-def preproc():
+def preproc(w='n'):
     orderdata = []
     f = open('./data/order_data_2.csv')
     csvReader = csv.reader(f)
@@ -344,4 +344,14 @@ def preproc():
     pairs = generateLabels(pairs)
     coord_xy = pair_to_xy(pairs)
     print('preprocessing complete w/ coordinates inputs')
-    return coord_xy
+
+    if w=='y': 
+        with open('coords_xy.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile, delimiter=' ', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        
+
+            for line in coord_xy:
+                writer.writerow(line)
+
+
+    return coord_xy, orderdata

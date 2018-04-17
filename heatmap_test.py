@@ -89,7 +89,7 @@ def get_mat(orderdata, bins,  conf):
 
 coord_xy, orderdata = preproc.preproc()
 
-p_list, d_list, p_max, d_max = get_mat(orderdata, 33, config)
+p_list, d_list, p_max, d_max = get_mat(orderdata, 11, config)
 
 rows = len(p_list)
 
@@ -102,7 +102,7 @@ fig, axes = plt.subplots(nrows=rows, ncols=5, figsize=(7,rows))
 
 ind = 0
 for ax in axes.flat :
-    if ind >= len(d_list):
+    if ind >= len(p_list):
         #break
         #im = ax.imshow()
         pass

@@ -2,6 +2,7 @@ import string
 import random
 
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
+    # if previous id is not generated
     return ''.join(random.choice(chars) for _ in range(size))
 
 class conf():
@@ -37,7 +38,7 @@ class conf():
         self.FULLY_CONNECTED_NUM = 1024
         self.DROP_OUT_PROB = 0.5
         self.TRANING_SET_RATE = 0.7
-        self.ITERATION = 100
+        self.ITERATION = 50
         self.CONFIG_ID = id_generator()
     
 
